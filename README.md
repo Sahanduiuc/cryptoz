@@ -1,3 +1,3 @@
 ## cryptoz
 
-Supports a range of statistical and visualization tools for tracking cryptocurrency market. As data source Poloniex is supported.
+Provides a range of statistical and visualization tools for tracking cryptocurrency market. As data source Poloniex is supported.
