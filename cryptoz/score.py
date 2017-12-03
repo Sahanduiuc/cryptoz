@@ -1,7 +1,8 @@
 import numpy as np
 
-def _apply(a, min_score, max_score):
-    """Rescale series into [min_score, max_score]"""
+def _apply(a):
+    """Rescale series into [-1, 1]"""
+    min_score, max_score = -1, 1
     scores = a.copy()
     old_range = np.nanmax(scores) - np.nanmin(scores)
     new_range = max_score - min_score
@@ -13,15 +14,16 @@ def _apply(a, min_score, max_score):
     return scores
 
 
-def apply(df, *args, **kwargs):
+def apply(df):
     """Past and future based"""
-    return df.apply(lambda sr: _apply(sr.values, *args, **kwargs))
+    return df.apply(lambda sr: _apply(sr.values))
 
 
-def safe_apply(df, *args, **kwargs):
+def rolling_apply(df, *args, **kwargs):
     """Past based"""
-    apply_func = lambda a: _apply(a, *args, **kwargs)[-1]
-    return df.rolling(window=len(df.index), min_periods=1).apply(apply_func)
+    from cryptoz import utils
+
+    return utils.rolling_apply(df, lambda a: _apply(a)[-1], *args, **kwargs)
 
 
 def reverse(score_df):
@@ -30,9 +32,9 @@ def reverse(score_df):
 
 def add(scoreA_df, scoreB_df):
     """Scores enhance each other"""
-    return apply(scoreA_df + scoreB_df, -1, 1)
+    return apply(scoreA_df + scoreB_df)
 
 
 def diff(scoreA_df, scoreB_df):
     """Scores diminish each other"""
-    return apply((scoreA_df - scoreB_df).abs(), -1, 1)
+    return apply((scoreA_df - scoreB_df).abs())

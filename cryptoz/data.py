@@ -72,17 +72,17 @@ def _pack_orderbook(orderbook):
     """Transform orderbook into series"""
     rates, amounts = zip(*orderbook['bids'])
     cum_bids = pd.Series(amounts, index=rates, dtype=float)
-    cum_bids = cum_bids.sort_index(ascending=False).cumsum().sort_index()
     cum_bids.index = cum_bids.index.astype(float)
+    cum_bids = cum_bids.sort_index(ascending=False).cumsum().sort_index()
     cum_bids *= cum_bids.index
 
     rates, amounts = zip(*orderbook['asks'])
     cum_asks = pd.Series(amounts, index=rates, dtype=float)
-    cum_asks = -cum_asks.sort_index().cumsum()
     cum_asks.index = cum_asks.index.astype(float)
+    cum_asks = -cum_asks.sort_index().cumsum()
     cum_asks *= cum_asks.index
 
-    return cum_bids.append(cum_asks)
+    return cum_bids.append(cum_asks).sort_index()
 
 
 def orderbooks(pairs, depth=100):

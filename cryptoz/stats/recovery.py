@@ -19,14 +19,14 @@ def dd_now(ohlc):
     return pd.Series({pair: _dd_now(ohlc_df) for pair, ohlc_df in ohlc.items()}).sort_values()
 
 
-def rolling_dd(ohlc, window, reducer=lambda df: df.mean()):
+def rolling_dd(ohlc, reducer, *args, **kwargs):
     _dd = dd(ohlc)
-    return utils.rolling_apply(_dd, window, reducer)
+    return utils.rolling_apply(_dd, reducer, *args, **kwargs)
 
 
-def resampled_dd(ohlc, period, reducer=lambda df: df.mean()):
+def resample_dd(ohlc, reducer, *args, **kwargs):
     _dd = dd(ohlc)
-    return utils.resampled_apply(_dd, period, reducer)
+    return utils.resample_apply(_dd, reducer, *args, **kwargs)
 
 
 _maxdd_duration = lambda ohlc_df, dd_sr: dd_sr.argmin() - ohlc_df.loc[:dd_sr.argmin(), 'H'].argmax()

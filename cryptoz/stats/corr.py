@@ -10,21 +10,21 @@ def corr(df):
 _apply = lambda sr1, sr2: sr1.corr(other=sr2) if len(sr1.index) > 1 else np.nan
 
 
-def _rolling_corr(sr1, sr2, window):
-    return utils.rolling_apply(sr1, window, lambda sr: _apply(sr, sr2))
+def _rolling_corr(sr1, sr2, *args, **kwargs):
+    return utils.rolling_apply(sr1, lambda sr: _apply(sr, sr2), *args, **kwargs)
 
 
-def _resampled_corr(sr1, sr2, period):
-    return utils.resampled_apply(sr1, period, lambda sr: _apply(sr, sr2))
+def _resample_corr(sr1, sr2, *args, **kwargs):
+    return utils.resample_apply(sr1, lambda sr: _apply(sr, sr2), *args, **kwargs)
 
 
-def rolling_corr(df, window):
-    apply_func = lambda sr1, sr2: _rolling_corr(sr1, sr2, window)
+def rolling_corr(df, *args, **kwargs):
+    apply_func = lambda sr1, sr2: _rolling_corr(sr1, sr2, *args, **kwargs)
     combi_func = utils.combine
     return utils.pairwise_apply(df, combi_func, apply_func)
 
 
-def resampled_corr(df, period):
-    apply_func = lambda sr1, sr2: _resampled_corr(sr1, sr2, period)
+def resample_corr(df, *args, **kwargs):
+    apply_func = lambda sr1, sr2: _resample_corr(sr1, sr2, *args, *kwargs)
     combi_func = utils.combine
     return utils.pairwise_apply(df, combi_func, apply_func)
