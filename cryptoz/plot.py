@@ -109,7 +109,7 @@ def time_series(df, cmap=None, ranker=None, ncols=3, figsize=None):
             nticks = 4
             tick_interval = math.ceil(len(df.index) / nticks)
             ax.set_xticks(x[::tick_interval])
-            ax.set_xticklabels(trunk_dt_index(df.index))
+            ax.set_xticklabels(trunk_dt_index(df.index)[::tick_interval])
             ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
             ax.set_xlim((min(x), max(x)))
             ax.set_ylim((min(y), max(y)))

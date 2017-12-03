@@ -30,7 +30,7 @@ def combine_rep(cols):
     return list(itertools.combinations_with_replacement(cols, 2))
 
 
-# Apply
+# Apply on DF
 
 def resampled_apply(df, period, func):
     """Apply on resampled data"""

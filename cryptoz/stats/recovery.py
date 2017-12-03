@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from cryptoz import utils
+
 _rolling_max = lambda ohlc_df: ohlc_df['H'].rolling(window=len(ohlc_df.index), min_periods=1).max()
 _dd = lambda ohlc_df: ohlc_df['L'] / _rolling_max(ohlc_df) - 1
 
@@ -18,15 +20,11 @@ def dd_now(ohlc):
 
 
 def rolling_dd(ohlc, window, reducer=lambda df: df.mean()):
-    from cryptoz import utils
-
     _dd = dd(ohlc)
     return utils.rolling_apply(_dd, window, reducer)
 
 
 def resampled_dd(ohlc, period, reducer=lambda df: df.mean()):
-    from cryptoz import utils
-
     _dd = dd(ohlc)
     return utils.resampled_apply(_dd, period, reducer)
 
