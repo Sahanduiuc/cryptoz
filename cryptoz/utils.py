@@ -13,6 +13,10 @@ def to_df(group, column):
     return pd.DataFrame({pair: df[column] for pair, df in group.items()})
 
 
+def to_sr(group, column, reducer):
+    return to_df(group, column).apply(reducer)
+
+
 # Combinations
 
 def product(cols):

@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+
 
 def _apply(a):
     """Rescale series into [-1, 1]"""
@@ -14,15 +16,24 @@ def _apply(a):
     return scores
 
 
-def apply(df):
-    """Past and future based"""
-    return df.apply(lambda sr: _apply(sr.values))
+def apply(df, axis=None):
+    """Past, present and future based"""
+    if axis is None:
+        # axis None: global score
+        flatten = df.values.flatten()
+        reshaped = _apply(flatten).reshape(df.values.shape)
+        return pd.DataFrame(reshaped, columns=df.columns, index=df.index)
+    else:
+        # axis 0: column-local score
+        # axis 1: index-local score
+        return df.apply(lambda sr: _apply(sr.values), axis=axis)
 
 
 def rolling_apply(df, *args, **kwargs):
-    """Past based"""
+    """Past and present based"""
     from cryptoz import utils
 
+    # Rolling through index -> axis 0 forced
     return utils.rolling_apply(df, lambda a: _apply(a)[-1], *args, **kwargs)
 
 
@@ -30,11 +41,11 @@ def reverse(score_df):
     return score_df.min() + score_df.max() - score_df
 
 
-def add(scoreA_df, scoreB_df):
+def add(scoreA_df, scoreB_df, axis=None):
     """Scores enhance each other"""
-    return apply(scoreA_df + scoreB_df)
+    return apply(scoreA_df + scoreB_df, axis=axis)
 
 
-def diff(scoreA_df, scoreB_df):
+def diff(scoreA_df, scoreB_df, axis=None):
     """Scores diminish each other"""
-    return apply((scoreA_df - scoreB_df).abs())
+    return apply((scoreA_df - scoreB_df).abs(), axis=axis)

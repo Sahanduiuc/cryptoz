@@ -10,10 +10,23 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 plt.style.use("ggplot")
 
 
-def discrete_cmap(bounds, colors):
-    cmap = mcolors.ListedColormap(colors)
-    norm = mcolors.BoundaryNorm(bounds, cmap.N)
-    return cmap, norm
+# colormaps
+###########
+
+def discrete_cmap(colors):
+    return mcolors.ListedColormap(colors)
+
+
+def continuous_cmap(colors, N=100):
+    return mcolors.LinearSegmentedColormap.from_list('cont_cmap', colors, N=N)
+
+
+def discrete_norm(cmap, bounds):
+    return mcolors.BoundaryNorm(bounds, cmap.N)
+
+
+def midpoint_norm(a, midpoint):
+    return MidpointNormalize(vmin=a.min(), vmax=a.max(), midpoint=midpoint)
 
 
 class MidpointNormalize(mcolors.Normalize):
@@ -26,14 +39,23 @@ class MidpointNormalize(mcolors.Normalize):
         return np.ma.masked_array(np.interp(value, x, y))
 
 
-def continuous_cmap(colors, midpoint=None, N=6):
-    # Create continuous cmap with/without midpoint
-    cmap = mcolors.LinearSegmentedColormap.from_list('cont_cmap', colors, N=N)
-    if midpoint is not None:
-        norm = MidpointNormalize(midpoint=midpoint)
-    else:
-        norm = mcolors.Normalize()
-    return cmap, norm
+def combine_cmaps(cm1, cm2, scale1, scale2):
+    colors = ()
+    for cm, scale in [(cm1, scale1), (cm2, scale2)]:
+        _colors = cm(np.linspace(0., 1, int(128 / abs(scale[1] - scale[0]))))
+        scale = np.array(scale)
+        scale *= len(_colors)
+        scale = scale.round().astype(int)
+        scale = scale.tolist()
+        _colors = _colors[slice(*scale)]
+        colors += (_colors,)
+    colors = np.vstack(colors)
+    mymap = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
+    return mymap
+
+
+# Plotting
+##########
 
 
 # https://stackoverflow.com/questions/29321835/is-it-possible-to-get-color-gradients-under-curve-in-matplotlb
@@ -77,8 +99,58 @@ def trunk_dt_index(index):
         return [i.strftime("%b %Y") for i in index]
 
 
+def hist(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, ncols=3, figsize=None):
+    """Plot group of histograms"""
+    print(pd.DataFrame(df.values.flatten()).describe().transpose())
+
+    nsubplots = len(df.columns)
+    nrows = math.ceil(nsubplots / ncols)
+    if ranker is not None:
+        _, columns = zip(*sorted(enumerate(df.columns), key=lambda x: ranker(df[x[1]])))
+    else:
+        columns = df.columns
+
+    plt.close('all')
+    if figsize is None:
+        figsize = (4 * ncols, 2.5 * nrows)
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True)
+
+    for i, ax in enumerate(axes.flat):
+        if (i < nsubplots):
+            sr = df[columns[i]].copy()
+
+            hist, _bins = np.histogram(sr, bins=bins)
+            width = np.diff(_bins)
+            center = (_bins[:-1] + _bins[1:]) / 2
+            if cmap is None:
+                colors = 'grey'
+            else:
+                if norm is None:
+                    norm = plt.Normalize()
+                colors = cmap(norm(_bins))
+
+            ax.bar(center, hist, color=colors, align='center', width=width, alpha=0.5)
+
+            if axvlines is None:
+                ax.axvline(sr.mean(), color='black', lw=1)
+            else:
+                for axvline in axvlines:
+                    if callable(axvline):
+                        ax.axvline(axvline(sr), color='black', lw=1)
+                    else:
+                        ax.axvline(axvline, color='black', lw=1)
+
+            ax.set_title(columns[i])
+            ax.grid(False)
+        else:
+            fig.delaxes(ax)
+
+    plt.tight_layout()
+    plt.show()
+
+
 def time_series(df, cmap=None, ranker=None, ncols=3, figsize=None):
-    """Display each time series as a line chart"""
+    """Plot group of line charts"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
 
     nsubplots = len(df.columns)
@@ -95,24 +167,31 @@ def time_series(df, cmap=None, ranker=None, ncols=3, figsize=None):
 
     for i, ax in enumerate(axes.flat):
         if (i < nsubplots):
-            sr = df[columns[i]]
+            sr = df[columns[i]].copy()
+            sr.index = trunk_dt_index(sr.index)
             x = list(range(len(sr.index)))
             y = sr.bfill().values
+
+            min_x, max_x, min_y, max_y = np.min(x), np.max(x), np.min(y), np.max(y)
+            offset = 0.2 * (max_y - min_y)
+            min_y -= offset
+            max_y += offset
 
             if cmap is None:
                 color = 'grey'
             else:
                 color = cmap(i / nsubplots)
-            alpha = 0.5
-            gradient_fill(ax, x, y, color, alpha, ylim=False)
+            gradient_fill(ax, x, y, color, 0.5, ylim=(min_y, max_y))
 
-            nticks = 4
-            tick_interval = math.ceil(len(df.index) / nticks)
-            ax.set_xticks(x[::tick_interval])
-            ax.set_xticklabels(trunk_dt_index(df.index)[::tick_interval])
+            ax.plot(sr.values.argmin(), sr.min(), marker='x', markersize=10, color='black')
+            ax.plot(sr.values.argmax(), sr.max(), marker='x', markersize=10, color='black')
+
+            ax.set_xticks([sr.values.argmin(), sr.values.argmax()])
+            ax.set_xticklabels([sr.argmin(), sr.argmax()])
             ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-            ax.set_xlim((min(x), max(x)))
-            ax.set_ylim((min(y), max(y)))
+
+            ax.set_xlim((min_x, max_x))
+            ax.set_ylim((min_y, max_y))
 
             ax.set_title(columns[i])
             ax.grid(False)
@@ -123,8 +202,14 @@ def time_series(df, cmap=None, ranker=None, ncols=3, figsize=None):
     plt.show()
 
 
-def matrix(df, norm=plt.Normalize(), cmap=plt.cm.GnBu_r, figsize=None):
-    """Display matrix as a heatmap"""
+def unravel_index(df):
+    min_idx, min_col = np.unravel_index(np.nanargmin(df.values), df.values.shape)
+    max_idx, max_col = np.unravel_index(np.nanargmax(df.values), df.values.shape)
+    return min_idx, min_col, max_idx, max_col
+
+
+def matrix(df, norm=None, cmap=plt.cm.GnBu, figsize=None):
+    """Plot a matrix heatmap"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
 
     plt.close('all')
@@ -133,10 +218,19 @@ def matrix(df, norm=plt.Normalize(), cmap=plt.cm.GnBu_r, figsize=None):
     fig, ax = plt.subplots(figsize=figsize)
 
     im = ax.pcolor(df, cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
-    ax.set_yticks(np.arange(len(df.index)) + 0.5, minor=False)
-    ax.set_xticks(np.arange(len(df.columns)) + 0.5, minor=False)
-    ax.set_yticklabels(df.index, minor=False)
+
+    x = np.arange(len(df.columns)) + 0.5
+    y = np.arange(len(df.index)) + 0.5
+
+    min_idx, min_col, max_idx, max_col = unravel_index(df)
+    min_x, min_y, max_x, max_y = x[min_col], y[min_idx], x[max_col], y[max_idx]
+    ax.plot(min_x, min_y, marker='x', markersize=10, color='black')
+    ax.plot(max_x, max_y, marker='x', markersize=10, color='black')
+
+    ax.set_xticks(x, minor=False)
+    ax.set_yticks(y, minor=False)
     ax.set_xticklabels(df.columns, minor=False)
+    ax.set_yticklabels(df.index, minor=False)
 
     # want a more natural, table-like display
     ax.invert_yaxis()
@@ -163,37 +257,50 @@ def matrix(df, norm=plt.Normalize(), cmap=plt.cm.GnBu_r, figsize=None):
     plt.show()
 
 
-def evolution(df, norm=plt.Normalize(), cmap=plt.cm.GnBu_r, figsize=None):
-    """Combine multiple time series into a heatmap"""
+def evolution(df, cmap=plt.cm.GnBu_r, norm=None, agg_func=lambda sr: sr.mean(), figsize=None):
+    """Combine multiple time series into a heatmap and plot"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
-    x = trunk_dt_index(df.index)
-    y = df.columns
-    df = df.transpose()
+    index = trunk_dt_index(df.index)
+    columns = df.columns
 
     plt.close('all')
     if figsize is None:
-        figsize = (14, len(df.index) * 0.4)
+        figsize = (14, len(columns) * 0.45)
     fig, ax = plt.subplots(figsize=figsize)
 
-    im = ax.pcolor(df, cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
-    # yticks
-    yticks = np.arange(len(y)) + 0.5
-    ax.set_yticks(yticks, minor=False)
-    ax.set_yticklabels(y, minor=False)
-    ax.invert_yaxis()
+    im = ax.pcolor(df.transpose(), cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
+
+    x = np.arange(len(index)) + 0.5
+    y = np.arange(len(columns)) + 0.5
+
+    min_x, min_y, max_x, max_y = unravel_index(df)
+    min_x, min_y, max_x, max_y = x[min_x], y[min_y], x[max_x], y[max_y]
+    ax.plot(min_x, min_y, marker='x', markersize=10, color='black')
+    ax.plot(max_x, max_y, marker='x', markersize=10, color='black')
+
     # xticks
     nticks = 6
     tick_interval = math.ceil(len(x) / nticks)
-    xticks = (np.arange(len(x)) + 0.5)
-    xticks = xticks[::tick_interval]
-    ax.set_xticks(xticks, minor=False)
-    ax.set_xticklabels(x[::tick_interval], minor=False)
+    ax.set_xticks(x[::tick_interval], minor=False)
+    ax.set_xticklabels(index[::tick_interval], minor=False)
 
-    plt.grid(False)
+    # yticks
+    ax.set_yticks(y, minor=False)
+    ax.set_yticklabels(columns, minor=False)
+    ax.invert_yaxis()
 
     divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size=0.35, pad=0.15)
-    plt.colorbar(im, cax=cax)
+    cax_right = divider.append_axes("right", size=0.35, pad=0.15)
+    plt.colorbar(im, cax=cax_right)
+
+    cax_top = divider.append_axes("top", size=0.35, pad=0.15)
+    agg_sr = df.apply(agg_func, axis=1)
+    cax_top.pcolor([agg_sr], cmap=cmap, norm=plt.Normalize(), vmin=agg_sr.min(), vmax=agg_sr.max())
+    cax_top.set_yticks([0.5], minor=False)
+    cax_top.set_yticklabels([agg_func.__name__], minor=False)
+    plt.setp(cax_top.get_xticklabels(), visible=False)
+
+    plt.grid(False)
 
     # Turn off all the ticks
     ax = plt.gca()
@@ -209,7 +316,7 @@ def evolution(df, norm=plt.Normalize(), cmap=plt.cm.GnBu_r, figsize=None):
 
 
 def depth(orderbooks, colors=None, ranker=None, ncols=3, figsize=None):
-    """Display order books as depth graphs"""
+    """Plot depth graphs from order books"""
     print(pd.DataFrame(np.array(list(orderbooks.values())).flatten()).describe().transpose())
 
     pairs = list(orderbooks.keys())
