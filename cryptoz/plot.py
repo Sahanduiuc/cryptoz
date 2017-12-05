@@ -25,8 +25,8 @@ def discrete_norm(cmap, bounds):
     return mcolors.BoundaryNorm(bounds, cmap.N)
 
 
-def midpoint_norm(a, midpoint):
-    return MidpointNormalize(vmin=a.min(), vmax=a.max(), midpoint=midpoint)
+def midpoint_norm(midpoint):
+    return MidpointNormalize(midpoint=midpoint)
 
 
 class MidpointNormalize(mcolors.Normalize):
@@ -295,7 +295,7 @@ def evolution(df, cmap=plt.cm.GnBu_r, norm=None, agg_func=lambda sr: sr.mean(), 
 
     cax_top = divider.append_axes("top", size=0.35, pad=0.15)
     agg_sr = df.apply(agg_func, axis=1)
-    cax_top.pcolor([agg_sr], cmap=cmap, norm=plt.Normalize(), vmin=agg_sr.min(), vmax=agg_sr.max())
+    cax_top.pcolor([agg_sr], cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
     cax_top.set_yticks([0.5], minor=False)
     cax_top.set_yticklabels([agg_func.__name__], minor=False)
     plt.setp(cax_top.get_xticklabels(), visible=False)
