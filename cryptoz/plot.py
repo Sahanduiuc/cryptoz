@@ -99,7 +99,7 @@ def trunk_dt_index(index):
         return [i.strftime("%b %Y") for i in index]
 
 
-def hist(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, ncols=3, figsize=None):
+def hist_matrix(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, ncols=3, figsize=None):
     """Plot group of histograms"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
 
@@ -113,7 +113,7 @@ def hist(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, ncols=3,
     plt.close('all')
     if figsize is None:
         figsize = (4 * ncols, 2.5 * nrows)
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True)
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
 
     for i, ax in enumerate(axes.flat):
         if (i < nsubplots):
@@ -149,7 +149,7 @@ def hist(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, ncols=3,
     plt.show()
 
 
-def time_series(df, cmap=None, ranker=None, ncols=3, figsize=None):
+def timesr_matrix(df, bands=None, ranker=None, ncols=3, figsize=None):
     """Plot group of line charts"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
 
@@ -177,11 +177,12 @@ def time_series(df, cmap=None, ranker=None, ncols=3, figsize=None):
             min_y -= offset
             max_y += offset
 
-            if cmap is None:
-                color = 'grey'
-            else:
-                color = cmap(i / nsubplots)
-            gradient_fill(ax, x, y, color, 0.5, ylim=(min_y, max_y))
+            gradient_fill(ax, x, y, 'grey', 0.5, ylim=(min_y, max_y))
+
+            if bands is not None:
+                upper_band = bands[0][columns[i]]
+                lower_band = bands[1][columns[i]]
+                ax.fill_between(x, upper_band, lower_band, color='steelblue', alpha=0.2)
 
             ax.plot(sr.values.argmin(), sr.min(), marker='x', markersize=10, color='black')
             ax.plot(sr.values.argmax(), sr.max(), marker='x', markersize=10, color='black')
@@ -208,7 +209,7 @@ def unravel_index(df):
     return min_idx, min_col, max_idx, max_col
 
 
-def matrix(df, norm=None, cmap=plt.cm.GnBu, figsize=None):
+def heatmap(df, norm=None, cmap=plt.cm.GnBu, figsize=None):
     """Plot a matrix heatmap"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
 
