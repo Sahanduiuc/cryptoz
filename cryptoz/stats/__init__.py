@@ -1,1 +1,1 @@
-from cryptoz.stats import corr, recovery, perf
+from cryptoz.stats import corr, recovery, perf, dist

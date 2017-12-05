@@ -365,3 +365,31 @@ def depth(orderbooks, colors=None, ranker=None, ncols=3, figsize=None):
 
     plt.tight_layout()
     plt.show()
+
+
+def quantiles(df, cmap=plt.cm.GnBu_r, norm=None, agg_func=lambda sr: sr.mean(), figsize=None):
+    print(pd.DataFrame(df.values.flatten()).describe().transpose())
+
+    perc_index = range(0, 101, 5)
+    nummap_perc_sr = pd.Series({x: np.nanpercentile(nummap_sr, x) for x in perc_index})
+    benchmark_perc_sr = pd.Series({x: np.nanpercentile(benchmark_sr, x) for x in perc_index})
+
+    fig, ax = plt.subplots()
+    ax.plot(benchmark_perc_sr, color='lightgrey')
+    ax.plot(nummap_perc_sr, color='darkgrey')
+    ax.fill_between(perc_index,
+                    nummap_perc_sr,
+                    benchmark_perc_sr,
+                    where=nummap_perc_sr > benchmark_perc_sr,
+                    facecolor='lime',
+                    interpolate=True)
+    ax.fill_between(perc_index,
+                    nummap_perc_sr,
+                    benchmark_perc_sr,
+                    where=nummap_perc_sr < benchmark_perc_sr,
+                    facecolor='orangered',
+                    interpolate=True)
+    diff_sr = nummap_perc_sr - benchmark_perc_sr
+    ax.plot(diff_sr.idxmax(), nummap_perc_sr.loc[diff_sr.idxmax()], marker='x', markersize=10, color='black')
+    ax.plot(diff_sr.idxmin(), nummap_perc_sr.loc[diff_sr.idxmin()], marker='x', markersize=10, color='black')
+    plt.show()

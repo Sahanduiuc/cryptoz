@@ -4,7 +4,7 @@ import pandas as pd
 from cryptoz import utils
 
 _rolling_max = lambda ohlc_df: ohlc_df['H'].rolling(window=len(ohlc_df.index), min_periods=1).max()
-_dd = lambda ohlc_df: ohlc_df['L'] / _rolling_max(ohlc_df) - 1
+_dd = lambda ohlc_df: 1 - ohlc_df['L'] / _rolling_max(ohlc_df)
 
 
 def dd(ohlc):
@@ -12,7 +12,7 @@ def dd(ohlc):
 
 
 # How far are we now from the last max?
-_dd_now = lambda ohlc_df: ohlc_df['C'].iloc[-1] / _rolling_max(ohlc_df).iloc[-1] - 1
+_dd_now = lambda ohlc_df: 1 - ohlc_df['C'].iloc[-1] / _rolling_max(ohlc_df).iloc[-1]
 
 
 def dd_now(ohlc):
@@ -47,7 +47,7 @@ def _period_details(ohlc_df, group_df):
         start = window_df.index[0]
         valley = window_df['L'].argmin()
         dd_len = len(window_df.loc[start:valley].index)
-        dd = min / max - 1
+        dd = 1 - min / max
         # Recovery
         if len(ohlc_df.loc[group_df.index[-1]:].index) > 1:
             # Recovery finished
