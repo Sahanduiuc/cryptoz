@@ -2,7 +2,7 @@
 
 ![corr-matrix](corr-matrix.png)
 
-Provides a range of statistical and visualization tools. As a data source Poloniex is supported.
+Provides a range of statistical and visualization tools. As data sources Binance and Poloniex are supported.
 
 To install run
 ```
