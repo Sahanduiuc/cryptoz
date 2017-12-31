@@ -106,7 +106,8 @@ def hist_matrix(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, n
     nsubplots = len(df.columns)
     nrows = math.ceil(nsubplots / ncols)
     if ranker is not None:
-        _, columns = zip(*sorted(enumerate(df.columns), key=lambda x: ranker(df[x[1]])))
+        ranks = [ranker(df[c]) for c in df.columns]
+        columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
     else:
         columns = df.columns
 
@@ -156,7 +157,8 @@ def timesr_matrix(df, bands=None, ranker=None, ncols=3, figsize=None):
     nsubplots = len(df.columns)
     nrows = math.ceil(nsubplots / ncols)
     if ranker is not None:
-        _, columns = zip(*sorted(enumerate(df.columns), key=lambda x: ranker(df[x[1]])))
+        ranks = [ranker(df[c]) for c in df.columns]
+        columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
     else:
         columns = df.columns
 
@@ -258,7 +260,7 @@ def heatmap(df, norm=None, cmap=plt.cm.GnBu, figsize=None):
     plt.show()
 
 
-def evolution(df, cmap=plt.cm.GnBu_r, norm=None, agg_func=lambda sr: sr.mean(), figsize=None):
+def evolution(df, cmap=plt.cm.GnBu_r, norm=None, reducer=lambda sr: sr.mean(), figsize=None):
     """Combine multiple time series into a heatmap and plot"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
     index = trunk_dt_index(df.index)
@@ -295,10 +297,10 @@ def evolution(df, cmap=plt.cm.GnBu_r, norm=None, agg_func=lambda sr: sr.mean(), 
     plt.colorbar(im, cax=cax_right)
 
     cax_top = divider.append_axes("top", size=0.35, pad=0.15)
-    agg_sr = df.apply(agg_func, axis=1)
-    cax_top.pcolor([agg_sr], cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
+    sentiment_sr = df.apply(reducer, axis=1)
+    cax_top.pcolor([sentiment_sr], cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
     cax_top.set_yticks([0.5], minor=False)
-    cax_top.set_yticklabels([agg_func.__name__], minor=False)
+    cax_top.set_yticklabels(["sentiment"], minor=False)
     plt.setp(cax_top.get_xticklabels(), visible=False)
 
     plt.grid(False)
@@ -324,7 +326,8 @@ def depth(orderbooks, colors=None, ranker=None, ncols=3, figsize=None):
     nsubplots = len(orderbooks.keys())
     nrows = math.ceil(nsubplots / ncols)
     if ranker is not None:
-        _, pairs = zip(*sorted(enumerate(pairs), key=lambda x: ranker(orderbooks[x[1]])))
+        ranks = [ranker(orderbooks[p]) for p in pairs]
+        pairs, _ = zip(*sorted(zip(pairs, ranks), key=lambda x: x[1]))
 
     plt.close('all')
     if figsize is None:

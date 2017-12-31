@@ -7,7 +7,7 @@ _rolling_max = lambda ohlc_df: ohlc_df['H'].rolling(window=len(ohlc_df.index), m
 _dd = lambda ohlc_df: 1 - ohlc_df['L'] / _rolling_max(ohlc_df)
 
 
-def dd(ohlc):
+def from_ohlc(ohlc):
     return pd.DataFrame({pair: _dd(ohlc_df) for pair, ohlc_df in ohlc.items()})
 
 
@@ -15,25 +15,25 @@ def dd(ohlc):
 _dd_now = lambda ohlc_df: 1 - ohlc_df['C'].iloc[-1] / _rolling_max(ohlc_df).iloc[-1]
 
 
-def dd_now(ohlc):
+def now(ohlc):
     return pd.Series({pair: _dd_now(ohlc_df) for pair, ohlc_df in ohlc.items()}).sort_values()
 
 
-def rolling_dd(ohlc, reducer, *args, **kwargs):
-    _dd = dd(ohlc)
+def rolling(ohlc, reducer, *args, **kwargs):
+    _dd = from_ohlc(ohlc)
     return utils.rolling_apply(_dd, reducer, *args, **kwargs)
 
 
-def resample_dd(ohlc, reducer, *args, **kwargs):
-    _dd = dd(ohlc)
-    return utils.resample_apply(_dd, reducer, *args, **kwargs)
+def resampling(ohlc, reducer, *args, **kwargs):
+    _dd = from_ohlc(ohlc)
+    return utils.resampling_apply(_dd, reducer, *args, **kwargs)
 
 
 _maxdd_duration = lambda ohlc_df, dd_sr: dd_sr.argmin() - ohlc_df.loc[:dd_sr.argmin(), 'H'].argmax()
 
 
-def maxdd_duration(ohlc):
-    _dd = dd(ohlc)
+def max_duration(ohlc):
+    _dd = from_ohlc(ohlc)
     return pd.Series({pair: _maxdd_duration(ohlc[pair], _dd[pair]) for pair in ohlc.keys()}).sort_values()
 
 

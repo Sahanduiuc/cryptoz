@@ -1,4 +1,4 @@
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 
 from setuptools import setup, find_packages
 
@@ -9,5 +9,5 @@ setup(name='cryptoz',
       url='https://github.com/polakowo/cryptoz',
       license='GPL v3',
       packages=find_packages(),
-      install_requires=['numpy', 'pandas', 'pytz', 'poloniex', 'matplotlib'],
+      install_requires=['numpy', 'pandas', 'pytz', 'matplotlib'],
       python_requires='>=3')

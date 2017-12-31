@@ -36,9 +36,9 @@ def combine_rep(cols):
 
 # Apply on DF
 
-def resample_apply(df, func, *args, **kwargs):
-    """Apply on resampled data"""
-    period_index = pd.Series(df.index, index=df.index).resample(*args, **kwargs).first()
+def resampling_apply(df, func, *args, **kwargs):
+    """Apply on resamplingd data"""
+    period_index = pd.Series(df.index, index=df.index).resampling(*args, **kwargs).first()
     grouper = pd.Series(1, index=period_index.values).reindex(df.index).fillna(0).cumsum()
     res_sr = df.groupby(grouper).apply(func)
     res_sr.index = period_index.index
@@ -48,6 +48,14 @@ def resample_apply(df, func, *args, **kwargs):
 def rolling_apply(df, func, *args, **kwargs):
     """Apply while rolling through data"""
     return df.rolling(*args, **kwargs).apply(func)
+
+
+def expanding_apply(df, func, backwards=False, **kwargs):
+    """Apply while expanding"""
+    if backwards:
+        return df.iloc[::-1].expanding(**kwargs).apply(func).iloc[::-1]
+    else:
+        return df.expanding(**kwargs).apply(func)
 
 
 def pairwise_apply(df, combi_func, apply_func):
