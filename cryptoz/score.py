@@ -3,8 +3,8 @@ import pandas as pd
 
 
 def _apply(a):
-    """Rescale series into [-1, 1]"""
-    min_score, max_score = -1, 1
+    """Rescale series into [0, 1]"""
+    min_score, max_score = 0, 1
     scores = a.copy()
     old_range = np.nanmax(scores) - np.nanmin(scores)
     new_range = max_score - min_score

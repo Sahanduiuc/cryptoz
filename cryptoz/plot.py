@@ -211,9 +211,18 @@ def unravel_index(df):
     return min_idx, min_col, max_idx, max_col
 
 
-def heatmap(df, norm=None, cmap=plt.cm.GnBu, figsize=None):
+def heatmap(df, col_ranker=None, idx_ranker=None, norm=None, cmap=plt.cm.GnBu, figsize=None):
     """Plot a matrix heatmap"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
+
+    if col_ranker is not None:
+        ranks = [col_ranker(df.loc[:, c]) for c in df.columns]
+        columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
+        df = df[list(columns)]
+    if idx_ranker is not None:
+        ranks = [idx_ranker(df.loc[i, :]) for i in df.index]
+        index, _ = zip(*sorted(zip(df.index, ranks), key=lambda x: x[1]))
+        df = df.reindex(list(index))
 
     plt.close('all')
     if figsize is None:
@@ -260,9 +269,17 @@ def heatmap(df, norm=None, cmap=plt.cm.GnBu, figsize=None):
     plt.show()
 
 
-def evolution(df, cmap=plt.cm.GnBu_r, norm=None, reducer=lambda sr: sr.mean(), figsize=None):
+def evolution(df, ranker='correlation', cmap=plt.cm.GnBu_r, norm=None, reducer=lambda sr: sr.mean(), figsize=None):
     """Combine multiple time series into a heatmap and plot"""
     print(pd.DataFrame(df.values.flatten()).describe().transpose())
+
+    if ranker is not None:
+        if isinstance(ranker, str):
+            if ranker == 'correlation':
+                ranker = lambda sr: -np.corrcoef(df[df.columns[0]], sr)[0, 1]
+        ranks = [ranker(df[c]) for c in df.columns]
+        columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
+        df = df[list(columns)]
     index = trunk_dt_index(df.index)
     columns = df.columns
 
