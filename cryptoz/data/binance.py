@@ -51,6 +51,8 @@ def chartdata(client, symbols, **params):
         symbols = list(filter(regex.search, all_symbols))
         return dict(zip(symbols, map(get_chartdata, symbols)))
 
+    print("%d symbols:" % len(symbols))
+
     # Symbols must be in format BASE/QUOTE to be split easier
     # If pair not supported by Binance -> convert using BTC in first place
     BTCUSDT = None
@@ -58,16 +60,18 @@ def chartdata(client, symbols, **params):
     for symbol in symbols:
         base, quote = symbol.split('/')
         joined = ''.join([base, quote])
+        print("%s.. " % joined, end='')
         if joined in all_symbols:
             ohlc[joined] = get_chartdata(joined)
         else:
             if quote == 'USDT':
                 # translate to USDT
                 if BTCUSDT is None:
-                    BTCUSDT = _chartdata(client, symbol='BTCUSDT', **params)
+                    BTCUSDT = get_chartdata('BTCUSDT')
                 ohlc[joined] = _convert(get_chartdata(''.join([base, 'BTC'])), BTCUSDT)
             else:
                 raise Exception("Symbol %s not found." % symbol)
+        print("done")
     return ohlc
 
 
@@ -98,11 +102,14 @@ def orderbooks(client, symbols, **params):
         symbols = list(filter(regex.search, all_symbols))
         return dict(zip(symbols, map(process_orderbook, symbols)))
 
+    print("%d symbols:" % len(symbols))
+
     BTCUSDT = None
     orderbooks = {}
     for symbol in symbols:
         base, quote = symbol.split('/')
         joined = ''.join([base, quote])
+        print("%s.. " % joined, end='')
         if joined in all_symbols:
             orderbooks[joined] = process_orderbook(joined)
         else:
@@ -115,4 +122,5 @@ def orderbooks(client, symbols, **params):
                 orderbooks[joined] = orderbook
             else:
                 raise Exception("Symbol %s not found." % symbol)
+        print("done")
     return orderbooks
