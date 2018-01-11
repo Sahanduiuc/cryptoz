@@ -1,17 +1,20 @@
-from cryptoz.data import Exchange
 from datetime import datetime
 
 import pandas as pd
 
+from cryptoz.exchanges import Exchange
+
 
 class Binance(Exchange):
     def __init__(self, client):
-        super.__init__(client)
+        Exchange.__init__(self, client)
 
-    def _ts_to_dt(self, ts):
+    @staticmethod
+    def _ts_to_dt(ts):
         return datetime.utcfromtimestamp(ts / 1000)
 
-    def _to_intern_pair(self, pair):
+    @staticmethod
+    def _to_intern_pair(pair):
         """BTCUSDT to BTC/USDT"""
         if '/' in pair:
             return pair
@@ -21,7 +24,8 @@ class Binance(Exchange):
                 return pair[:-len(quote)] + '/' + quote
         return None
 
-    def _to_exchange_pair(self, pair):
+    @staticmethod
+    def _to_exchange_pair(pair):
         """BTC/USDT to BTCUSDT"""
         if '/' not in pair:
             return pair
@@ -35,39 +39,30 @@ class Binance(Exchange):
         pair = self._to_exchange_pair(pair)
         return float(self.client.get_recent_trades(symbol=pair, limit=1)[0]['price'])
 
-    def _get_ohlc(self, **params):
-        params['symbol'] = self._to_exchange_pair(params['symbol'])
+    def _get_ohlc(self, **kwargs):
+        kwargs['symbol'] = self._to_exchange_pair(kwargs['symbol'])
         """Load OHLC data on a single pair"""
-        candles = self.client.get_klines(**params)
+        candles = self.client.get_klines(**kwargs)
         columns = ['date', 'O', 'H', 'L', 'C', '_', '_', 'V', '_', '_', '_', '_']
-        chart_df = pd.DataFrame(candles, columns=columns)
-        chart_df.set_index('date', drop=True, inplace=True)
-        chart_df.index = [self._ts_to_dt(i) for i in chart_df.index]
-        chart_df.fillna(method='ffill', inplace=True)  # fill gaps forwards
-        chart_df.fillna(method='bfill', inplace=True)  # fill gaps backwards
-        chart_df = chart_df.astype(float)
-        return chart_df[['O', 'H', 'L', 'C', 'V']].iloc[1:]  # first entry can be dirty
 
-    def _convert_ohlc(self, ohlc, cross_ohlc, divide=True):
-        if divide:
-            cross_ohlc = 1 / cross_ohlc.copy()
-        ohlc = ohlc.copy()
-        ohlc['O'] *= cross_ohlc['O']
-        middle = (cross_ohlc['L'] + cross_ohlc['H'] + cross_ohlc['C']) / 3  # middle
-        ohlc['H'] *= middle
-        ohlc['L'] *= middle
-        ohlc['C'] *= cross_ohlc['C']
-        ohlc['V'] *= middle
-        return ohlc
+        df = pd.DataFrame(candles, columns=columns)
+        df.set_index('date', drop=True, inplace=True)
+        df.index = [self._ts_to_dt(i) for i in df.index]
+        df.fillna(method='ffill', inplace=True)  # fill gaps forwards
+        df.fillna(method='bfill', inplace=True)  # fill gaps backwards
+        df = df.astype(float)
+        df = df[['O', 'H', 'L', 'C', 'V']]
+        df['M'] = (df['L'] + df['H'] + df['C']) / 3
+        df = df.iloc[1:] # first entry can be dirty
+        return df
 
-    def get_ohlc(self, pairs, **params):
-        supported = self.get_pairs()
-        load_func = lambda pair: self._get_ohlc(symbol=pair, **params)
-        return self._load_pairs(pairs, supported, self._convert_ohlc, load_func)
+    def get_ohlc(self, pairs, **kwargs):
+        load_func = lambda pair: self._get_ohlc(symbol=pair, **kwargs)
+        return Exchange._load_pairs(self, pairs, Exchange._convert_ohlc, load_func)
 
-    def _get_orderbook(self, pair, **params):
+    def _get_orderbook(self, pair, **kwargs):
         pair = self._to_exchange_pair(pair)
-        orderbook = self.client.get_order_book(symbol=pair, **params)
+        orderbook = self.client.get_order_book(symbol=pair, **kwargs)
 
         rates, amounts, _ = zip(*orderbook['bids'])
         cum_bids = pd.Series(amounts, index=rates, dtype=float)
@@ -83,16 +78,6 @@ class Binance(Exchange):
 
         return cum_bids.append(cum_asks).sort_index()
 
-    def _convert_orderbook(self, orderbook, cross_price, divide=True):
-        if divide:
-            cross_price = 1 / cross_price
-        orderbook = orderbook.copy()
-        orderbook *= cross_price
-        orderbook.index *= cross_price
-        return orderbook
-
-    def get_orderbooks(self, pairs, **params):
-        supported = self.get_pairs()
-        load_func = lambda pair: self._get_orderbook(pair, **params)
-        cross_func = lambda pair: self.get_price(pair)
-        return self.load_pairs(pairs, supported, self._convert_orderbook, load_func, cross_func=cross_func)
+    def get_orderbooks(self, pairs, **kwargs):
+        load_func = lambda pair: self._get_orderbook(pair, **kwargs)
+        return Exchange._load_pairs(self, pairs, Exchange._convert_orderbook, load_func, cross_func=self.get_price)

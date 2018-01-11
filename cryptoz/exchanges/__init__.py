@@ -1,8 +1,7 @@
-from cryptoz.data.exchanges import binance, poloniex
 import re
 
-class Exchange(object):
 
+class Exchange(object):
     def __init__(self, client):
         self.client = client
 
@@ -12,11 +11,33 @@ class Exchange(object):
     def get_price(self, pair):
         pass
 
-    def get_ohlc(self, pairs, **params):
+    def get_ohlc(self, pairs, *args, **kwargs):
         pass
 
-    def get_orderbooks(self, pairs, **params):
+    def get_orderbooks(self, pairs, *args, **kwargs):
         pass
+
+    @staticmethod
+    def _convert_ohlc(ohlc, cross_ohlc, divide=True):
+        if divide:
+            cross_ohlc = 1 / cross_ohlc.copy()
+        ohlc = ohlc.copy()
+        ohlc['O'] *= cross_ohlc['O']
+        middle = (cross_ohlc['L'] + cross_ohlc['H'] + cross_ohlc['C']) / 3  # middle
+        ohlc['H'] *= middle
+        ohlc['L'] *= middle
+        ohlc['C'] *= cross_ohlc['C']
+        ohlc['V'] *= middle
+        return ohlc
+
+    @staticmethod
+    def _convert_orderbook(orderbook, cross_price, divide=True):
+        if divide:
+            cross_price = 1 / cross_price
+        orderbook = orderbook.copy()
+        orderbook *= cross_price
+        orderbook.index *= cross_price
+        return orderbook
 
     def _load_pairs(self, pairs, convert_func, load_func, cross_func=None):
         """
