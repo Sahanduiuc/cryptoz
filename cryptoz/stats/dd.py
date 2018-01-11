@@ -15,7 +15,7 @@ def from_ohlc(ohlc):
 _dd_now = lambda ohlc_df: 1 - ohlc_df['C'].iloc[-1] / _rolling_max(ohlc_df).iloc[-1]
 
 
-def now(ohlc):
+def now(ohlc, delta=None):
     return pd.Series({pair: _dd_now(ohlc_df) for pair, ohlc_df in ohlc.items()}).sort_values()
 
 

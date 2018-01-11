@@ -7,6 +7,8 @@ import pandas as pd
 from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from cryptoz import utils
+
 plt.style.use("ggplot")
 
 
@@ -99,14 +101,14 @@ def trunk_dt_index(index):
         return [i.strftime("%b %Y") for i in index]
 
 
-def hist_matrix(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, ncols=3, figsize=None):
+def hist_matrix(df, cmap, bins=20, norm=None, rank=None, axvlines=None, ncols=3, figsize=None):
     """Plot group of histograms"""
-    print(pd.DataFrame(df.values.flatten()).describe().transpose())
+    print(utils.describe_df(df, flatten=True))
 
     nsubplots = len(df.columns)
     nrows = math.ceil(nsubplots / ncols)
-    if ranker is not None:
-        ranks = [ranker(df[c]) for c in df.columns]
+    if rank is not None:
+        ranks = [rank(df[c]) for c in df.columns]
         columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
     else:
         columns = df.columns
@@ -117,7 +119,7 @@ def hist_matrix(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, n
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
 
     for i, ax in enumerate(axes.flat):
-        if (i < nsubplots):
+        if i < nsubplots:
             sr = df[columns[i]].copy()
 
             hist, _bins = np.histogram(sr, bins=bins)
@@ -150,14 +152,14 @@ def hist_matrix(df, bins=20, cmap=None, norm=None, ranker=None, axvlines=None, n
     plt.show()
 
 
-def timesr_matrix(df, bands=None, ranker=None, ncols=3, figsize=None):
+def timesr_matrix(df, bands=None, rank=None, ncols=3, figsize=None):
     """Plot group of line charts"""
-    print(pd.DataFrame(df.values.flatten()).describe().transpose())
+    print(utils.describe_df(df, flatten=True))
 
     nsubplots = len(df.columns)
     nrows = math.ceil(nsubplots / ncols)
-    if ranker is not None:
-        ranks = [ranker(df[c]) for c in df.columns]
+    if rank is not None:
+        ranks = [rank(df[c]) for c in df.columns]
         columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
     else:
         columns = df.columns
@@ -168,7 +170,7 @@ def timesr_matrix(df, bands=None, ranker=None, ncols=3, figsize=None):
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
 
     for i, ax in enumerate(axes.flat):
-        if (i < nsubplots):
+        if i < nsubplots:
             sr = df[columns[i]].copy()
             sr.index = trunk_dt_index(sr.index)
             x = list(range(len(sr.index)))
@@ -184,7 +186,10 @@ def timesr_matrix(df, bands=None, ranker=None, ncols=3, figsize=None):
             if bands is not None:
                 upper_band = bands[0][columns[i]]
                 lower_band = bands[1][columns[i]]
-                ax.fill_between(x, upper_band, lower_band, color='steelblue', alpha=0.2)
+                mean = (lower_band + upper_band) / 2
+
+                ax.fill_between(x, upper_band, mean, color='green', alpha=0.2)
+                ax.fill_between(x, mean, lower_band, color='orangered', alpha=0.2)
 
             ax.plot(sr.values.argmin(), sr.min(), marker='x', markersize=10, color='black')
             ax.plot(sr.values.argmax(), sr.max(), marker='x', markersize=10, color='black')
@@ -211,9 +216,9 @@ def unravel_index(df):
     return min_idx, min_col, max_idx, max_col
 
 
-def heatmap(df, col_ranker=None, idx_ranker=None, norm=None, cmap=plt.cm.GnBu, figsize=None):
+def heatmap(df, cmap, norm=None, col_ranker=None, idx_ranker=None, figsize=None):
     """Plot a matrix heatmap"""
-    print(pd.DataFrame(df.values.flatten()).describe().transpose())
+    print(utils.describe_df(df, flatten=True))
 
     if col_ranker is not None:
         ranks = [col_ranker(df.loc[:, c]) for c in df.columns]
@@ -269,15 +274,19 @@ def heatmap(df, col_ranker=None, idx_ranker=None, norm=None, cmap=plt.cm.GnBu, f
     plt.show()
 
 
-def evolution(df, ranker='correlation', cmap=plt.cm.GnBu_r, norm=None, reducer=lambda sr: sr.mean(), figsize=None):
+def evolution(df, cmap, norm=None, rank=None, sentiment=lambda sr: sr.mean(), figsize=None):
     """Combine multiple time series into a heatmap and plot"""
-    print(pd.DataFrame(df.values.flatten()).describe().transpose())
+    print(utils.describe_df(df, flatten=True))
 
-    if ranker is not None:
-        if isinstance(ranker, str):
-            if ranker == 'correlation':
-                ranker = lambda sr: -np.corrcoef(df[df.columns[0]], sr)[0, 1]
-        ranks = [ranker(df[c]) for c in df.columns]
+    if rank is not None:
+        if isinstance(rank, str):
+            if rank == 'correlation':
+                rank = lambda sr: -np.corrcoef(df[df.columns[0]], sr)[0, 1]
+            elif rank == 'last':
+                rank = lambda sr: -sr.iloc[-1]
+            elif rank == 'mean':
+                rank = lambda sr: -sr.mean()
+        ranks = [rank(df[c]) for c in df.columns]
         columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
         df = df[list(columns)]
     index = trunk_dt_index(df.index)
@@ -314,7 +323,7 @@ def evolution(df, ranker='correlation', cmap=plt.cm.GnBu_r, norm=None, reducer=l
     plt.colorbar(im, cax=cax_right)
 
     cax_top = divider.append_axes("top", size=0.35, pad=0.15)
-    sentiment_sr = df.apply(reducer, axis=1)
+    sentiment_sr = df.apply(sentiment, axis=1)
     cax_top.pcolor([sentiment_sr], cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
     cax_top.set_yticks([0.5], minor=False)
     cax_top.set_yticklabels(["sentiment"], minor=False)
@@ -335,15 +344,16 @@ def evolution(df, ranker='correlation', cmap=plt.cm.GnBu_r, norm=None, reducer=l
     plt.show()
 
 
-def depth(orderbooks, colors=None, ranker=None, ncols=3, figsize=None):
+def depth(orderbooks, colors=None, rank=None, ncols=3, figsize=None):
     """Plot depth graphs from order books"""
-    print(pd.DataFrame(np.array(list(orderbooks.values())).flatten()).describe().transpose())
+    df = pd.DataFrame(np.array(list(orderbooks.values())).flatten())
+    print(utils.describe_df(df))
 
     pairs = list(orderbooks.keys())
     nsubplots = len(orderbooks.keys())
     nrows = math.ceil(nsubplots / ncols)
-    if ranker is not None:
-        ranks = [ranker(orderbooks[p]) for p in pairs]
+    if rank is not None:
+        ranks = [rank(orderbooks[p]) for p in pairs]
         pairs, _ = zip(*sorted(zip(pairs, ranks), key=lambda x: x[1]))
 
     plt.close('all')
@@ -384,32 +394,4 @@ def depth(orderbooks, colors=None, ranker=None, ncols=3, figsize=None):
             fig.delaxes(ax)
 
     plt.tight_layout()
-    plt.show()
-
-
-def quantiles(df, cmap=plt.cm.GnBu_r, norm=None, agg_func=lambda sr: sr.mean(), figsize=None):
-    print(pd.DataFrame(df.values.flatten()).describe().transpose())
-
-    perc_index = range(0, 101, 5)
-    nummap_perc_sr = pd.Series({x: np.nanpercentile(nummap_sr, x) for x in perc_index})
-    benchmark_perc_sr = pd.Series({x: np.nanpercentile(benchmark_sr, x) for x in perc_index})
-
-    fig, ax = plt.subplots()
-    ax.plot(benchmark_perc_sr, color='lightgrey')
-    ax.plot(nummap_perc_sr, color='darkgrey')
-    ax.fill_between(perc_index,
-                    nummap_perc_sr,
-                    benchmark_perc_sr,
-                    where=nummap_perc_sr > benchmark_perc_sr,
-                    facecolor='lime',
-                    interpolate=True)
-    ax.fill_between(perc_index,
-                    nummap_perc_sr,
-                    benchmark_perc_sr,
-                    where=nummap_perc_sr < benchmark_perc_sr,
-                    facecolor='orangered',
-                    interpolate=True)
-    diff_sr = nummap_perc_sr - benchmark_perc_sr
-    ax.plot(diff_sr.idxmax(), nummap_perc_sr.loc[diff_sr.idxmax()], marker='x', markersize=10, color='black')
-    ax.plot(diff_sr.idxmin(), nummap_perc_sr.loc[diff_sr.idxmin()], marker='x', markersize=10, color='black')
     plt.show()

@@ -1,1 +1,1 @@
-from cryptoz import data, utils, plot, stats, score
+from cryptoz import exchanges, utils, plot, stats
