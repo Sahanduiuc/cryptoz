@@ -17,5 +17,6 @@ Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/
 - psychological level analysis (fibonacci retracement, support/resistance, round numbers, etc.)
 - predictions using machine learning
 - social data analysis
+- eventually creation of a Web interface / mobile app
 
 This repo is in a steady development. 
