@@ -11,9 +11,7 @@ pip install git+https://github.com/polakowo/cryptoz.git
 
 Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/github/polakowo/cryptoz/blob/master/Workbook.ipynb)
 
-**This repo is in an active developemnt**
-
-### TODO
+### TODOs
 - better documentation
 - portfolio analysis (% earned for each coin, timing the entry/exit, rebalancing, etc.)
 - psychological level analysis (fibonacci retracement, support/resistance, round numbers, etc.)
