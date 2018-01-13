@@ -15,3 +15,4 @@ Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/
 - portfolio analysis (% earned for each coin, timing the entry/exit, rebalancing, etc.)
 - predictions using machine learning
 - social data analysis
+- better documentation
