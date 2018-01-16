@@ -52,9 +52,14 @@ class Poloniex(Exchange):
         pairs = set(map(lambda s: self._to_intern_pair(str(s).upper()), self.client.returnTicker().keys()))
         return list(filter(lambda s: s is not None, pairs))
 
-    def get_price(self, pair):
-        pair = self._to_exchange_pair(pair)
-        return float(self.client.returnTicker()[pair]['last'])
+    def get_ticker(self):
+        ticker = {}
+
+        for pair, d in self.client.returnTicker().items():
+            pair = self._to_intern_pair(pair)
+            if pair is not None:
+                ticker[pair] = float(d['last'])
+        return ticker
 
     def _get_ohlc(self, pair, *args, **kwargs):
         pair = self._to_exchange_pair(pair)
@@ -73,8 +78,7 @@ class Poloniex(Exchange):
         return df
 
     def get_ohlc(self, pairs, *args, **kwargs):
-        load_func = lambda pair: self._get_ohlc(pair, *args, **kwargs)
-        return Exchange._load_pairs(self, pairs, Exchange._convert_ohlc, load_func)
+        return Exchange._load_and_convert_ohlc(self, pairs, *args, **kwargs)
 
     def _get_orderbook(self, pair, **kwargs):
         pair = self._to_exchange_pair(pair)
@@ -95,5 +99,4 @@ class Poloniex(Exchange):
         return cum_bids.append(cum_asks).sort_index()
 
     def get_orderbooks(self, pairs, **kwargs):
-        load_func = lambda pair: self._get_orderbook(pair, **kwargs)
-        return Exchange._load_pairs(self, pairs, Exchange._convert_orderbook, load_func, cross_func=self.get_price)
+        return Exchange._load_and_convert_orderbooks(self, pairs, **kwargs)

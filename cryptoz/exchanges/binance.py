@@ -35,14 +35,30 @@ class Binance(Exchange):
         pairs = set(map(lambda d: self._to_intern_pair(d['symbol']), self.client.get_all_tickers()))
         return list(filter(lambda s: s is not None, pairs))
 
-    def get_price(self, pair):
-        pair = self._to_exchange_pair(pair)
-        return float(self.client.get_recent_trades(symbol=pair, limit=1)[0]['price'])
+    def get_ticker(self):
+        ticker = {}
+        for d in self.client.get_all_tickers():
+            pair = self._to_intern_pair(d['symbol'])
+            if pair is not None:
+                ticker[pair] = float(d['price'])
+        return ticker
 
-    def _get_ohlc(self, **kwargs):
-        kwargs['symbol'] = self._to_exchange_pair(kwargs['symbol'])
+    def _get_balances(self):
+        balances = self.client.get_account()['balances']
+        df = pd.DataFrame(balances)
+        df.set_index('asset', drop=True, inplace=True)
+        df = df.astype(float)
+        df = df[(df['free'] > 0) & (df['locked'] == 0)]
+        df.drop('locked', 1, inplace=True)
+        return df['free'].to_dict()
+
+    def get_balances(self, hide_small_assets=True):
+        return Exchange._load_and_convert_balances(self, hide_small_assets)
+
+    def _get_ohlc(self, pair, **kwargs):
+        pair = self._to_exchange_pair(pair)
         """Load OHLC data on a single pair"""
-        candles = self.client.get_klines(**kwargs)
+        candles = self.client.get_klines(symbol=pair, **kwargs)
         columns = ['date', 'O', 'H', 'L', 'C', '_', '_', 'V', '_', '_', '_', '_']
 
         df = pd.DataFrame(candles, columns=columns)
@@ -53,12 +69,11 @@ class Binance(Exchange):
         df = df.astype(float)
         df = df[['O', 'H', 'L', 'C', 'V']]
         df['M'] = (df['L'] + df['H'] + df['C']) / 3
-        df = df.iloc[1:] # first entry can be dirty
+        df = df.iloc[1:]  # first entry can be dirty
         return df
 
     def get_ohlc(self, pairs, **kwargs):
-        load_func = lambda pair: self._get_ohlc(symbol=pair, **kwargs)
-        return Exchange._load_pairs(self, pairs, Exchange._convert_ohlc, load_func)
+        return Exchange._load_and_convert_ohlc(self, pairs, **kwargs)
 
     def _get_orderbook(self, pair, **kwargs):
         pair = self._to_exchange_pair(pair)
@@ -79,5 +94,4 @@ class Binance(Exchange):
         return cum_bids.append(cum_asks).sort_index()
 
     def get_orderbooks(self, pairs, **kwargs):
-        load_func = lambda pair: self._get_orderbook(pair, **kwargs)
-        return Exchange._load_pairs(self, pairs, Exchange._convert_orderbook, load_func, cross_func=self.get_price)
+        return Exchange._load_and_convert_orderbooks(self, pairs, **kwargs)
