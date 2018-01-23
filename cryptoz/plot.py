@@ -60,31 +60,6 @@ def combine_cmaps(cm1, cm2, scale1, scale2):
 ##########
 
 
-# https://stackoverflow.com/questions/29321835/is-it-possible-to-get-color-gradients-under-curve-in-matplotlb
-def gradient_fill(ax, x, y, color, alpha, ylim=False):
-    line, = ax.plot(x, y, color=color)
-    zorder = line.get_zorder()
-
-    z = np.empty((100, 1, 4), dtype=float)
-    rgb = mcolors.colorConverter.to_rgb(color)
-    z[:, :, :3] = rgb
-    z[:, :, -1] = np.linspace(0, alpha, 100)[:, None]
-    if ylim:
-        ymin, ymax = ylim
-    else:
-        ymin, ymax = min(y), max(y)
-    xmin, xmax = min(x), max(x)
-    im = ax.imshow(z, aspect='auto', extent=[xmin, xmax, ymin, ymax], origin='lower', zorder=zorder)
-
-    xy = np.column_stack([x, y])
-    xy = np.vstack([[xmin, ymin], xy, [xmax, ymin], [xmin, ymin]])
-    clip_path = Polygon(xy, facecolor='none', edgecolor='none', closed=True)
-    ax.add_patch(clip_path)
-    im.set_clip_path(clip_path)
-
-    return line, im
-
-
 def trunk_dt_index(index):
     """Trunk datetime index"""
     tdiff = int((index[-1] - index[0]).total_seconds())
@@ -99,115 +74,6 @@ def trunk_dt_index(index):
         return [i.strftime("%b %d") for i in index]
     else:  # Jun 2018
         return [i.strftime("%b %Y") for i in index]
-
-
-def hist_matrix(df, cmap, bins=20, norm=None, rank=None, axvlines=None, ncols=3, figsize=None):
-    """Plot group of histograms"""
-    print(utils.describe_df(df, flatten=True))
-
-    nsubplots = len(df.columns)
-    nrows = math.ceil(nsubplots / ncols)
-    if rank is not None:
-        ranks = [rank(df[c]) for c in df.columns]
-        columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
-    else:
-        columns = df.columns
-
-    plt.close('all')
-    if figsize is None:
-        figsize = (4 * ncols, 2.5 * nrows)
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
-
-    for i, ax in enumerate(axes.flat):
-        if i < nsubplots:
-            sr = df[columns[i]].copy()
-
-            hist, _bins = np.histogram(sr, bins=bins)
-            width = np.diff(_bins)
-            center = (_bins[:-1] + _bins[1:]) / 2
-            if cmap is None:
-                colors = 'grey'
-            else:
-                if norm is None:
-                    norm = plt.Normalize()
-                colors = cmap(norm(_bins))
-
-            ax.bar(center, hist, color=colors, align='center', width=width, alpha=0.5)
-
-            if axvlines is None:
-                ax.axvline(sr.mean(), color='black', lw=1)
-            else:
-                for axvline in axvlines:
-                    if callable(axvline):
-                        ax.axvline(axvline(sr), color='black', lw=1)
-                    else:
-                        ax.axvline(axvline, color='black', lw=1)
-
-            ax.set_title(columns[i])
-            ax.grid(False)
-        else:
-            fig.delaxes(ax)
-
-    plt.tight_layout()
-    plt.show()
-
-
-def timesr_matrix(df, bands=None, rank=None, ncols=3, figsize=None):
-    """Plot group of line charts"""
-    print(utils.describe_df(df, flatten=True))
-
-    nsubplots = len(df.columns)
-    nrows = math.ceil(nsubplots / ncols)
-    if rank is not None:
-        ranks = [rank(df[c]) for c in df.columns]
-        columns, _ = zip(*sorted(zip(df.columns, ranks), key=lambda x: x[1]))
-    else:
-        columns = df.columns
-
-    plt.close('all')
-    if figsize is None:
-        figsize = (4 * ncols, 2.5 * nrows)
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
-
-    for i, ax in enumerate(axes.flat):
-        if i < nsubplots:
-            sr = df[columns[i]].copy()
-            sr.index = trunk_dt_index(sr.index)
-            x = list(range(len(sr.index)))
-            y = sr.bfill().values
-
-            min_x, max_x, min_y, max_y = np.min(x), np.max(x), np.min(y), np.max(y)
-            offset = 0.2 * (max_y - min_y)
-            min_y -= offset
-            max_y += offset
-
-            gradient_fill(ax, x, y, 'grey', 0.5, ylim=(min_y, max_y))
-
-            if bands is not None:
-                upper_band = bands[0][columns[i]]
-                lower_band = bands[1][columns[i]]
-                mean = (lower_band + upper_band) / 2
-
-                ax.fill_between(x, upper_band, mean, color='green', alpha=0.2)
-                ax.fill_between(x, mean, lower_band, color='orangered', alpha=0.2)
-
-            ax.plot(sr.values.argmin(), sr.min(), marker='x', markersize=10, color='black')
-            ax.plot(sr.values.argmax(), sr.max(), marker='x', markersize=10, color='black')
-
-            ax.set_xticks([sr.values.argmin(), sr.values.argmax()])
-            ax.set_xticklabels([sr.argmin(), sr.argmax()])
-            ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-
-            ax.set_xlim((min_x, max_x))
-            ax.set_ylim((min_y, max_y))
-
-            ax.set_title(columns[i])
-            ax.grid(False)
-        else:
-            fig.delaxes(ax)
-
-    plt.tight_layout()
-    plt.show()
 
 
 def unravel_index(df):
@@ -295,7 +161,7 @@ def evolution(df, cmap, norm=None, rank=None, sentiment=lambda sr: sr.mean(), fi
     plt.close('all')
     if figsize is None:
         figsize = (14, len(columns) * 0.45)
-    fig, ax = plt.subplots(figsize=figsize)
+    
 
     im = ax.pcolor(df.transpose(), cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
 
@@ -341,57 +207,4 @@ def evolution(df, cmap, norm=None, rank=None, sentiment=lambda sr: sr.mean(), fi
         t.tick1On = False
         t.tick2On = False
 
-    plt.show()
-
-
-def depth(orderbooks, colors=None, rank=None, ncols=3, figsize=None):
-    """Plot depth graphs from order books"""
-    df = pd.DataFrame(np.array(list(orderbooks.values())).flatten())
-    print(utils.describe_df(df))
-
-    pairs = list(orderbooks.keys())
-    nsubplots = len(orderbooks.keys())
-    nrows = math.ceil(nsubplots / ncols)
-    if rank is not None:
-        ranks = [rank(orderbooks[p]) for p in pairs]
-        pairs, _ = zip(*sorted(zip(pairs, ranks), key=lambda x: x[1]))
-
-    plt.close('all')
-    if figsize is None:
-        figsize = (4 * ncols, 2.5 * nrows)
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
-
-    if colors is None:
-        colors = ('grey', 'grey')
-
-    for i, ax in enumerate(axes.flat):
-        if (i < nsubplots):
-            orderbook = orderbooks[pairs[i]]
-            bids = orderbook[orderbook > 0]
-            asks = np.abs(orderbook[orderbook < 0])
-            split = len(bids.index)
-
-            x = orderbook.index
-            y = np.abs(orderbook.values)
-
-            min_x = min(x)
-            max_x = max(x)
-            min_y = 0
-            max_y = max(y)
-
-            c1, c2 = colors
-            gradient_fill(ax, x[:split], bids.values, c1, 0.5, ylim=(min_y, max_y))
-            gradient_fill(ax, x[split:], asks.values, c2, 0.5, ylim=(min_y, max_y))
-
-            ax.set_xlim((min_x, max_x))
-            ax.set_ylim((min_y, max_y))
-
-            ax.set_xticks([x[0], x[split], x[-1]])
-            ax.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-            ax.set_title(pairs[i])
-            ax.grid(False)
-        else:
-            fig.delaxes(ax)
-
-    plt.tight_layout()
     plt.show()
