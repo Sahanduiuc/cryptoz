@@ -161,7 +161,7 @@ def evolution(df, cmap, norm=None, rank=None, sentiment=lambda sr: sr.mean(), fi
     plt.close('all')
     if figsize is None:
         figsize = (14, len(columns) * 0.45)
-    
+    fig, ax = plt.subplots(figsize=figsize)
 
     im = ax.pcolor(df.transpose(), cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
 
