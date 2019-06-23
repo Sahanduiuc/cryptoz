@@ -18,5 +18,3 @@ Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/
 - alerts to Telegram
 - better documentation
 - eventually creation of a Web interface / mobile app
-
-This repo is in a steady development. 
