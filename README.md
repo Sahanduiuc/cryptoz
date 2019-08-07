@@ -1,6 +1,6 @@
 ## cryptoz
 
-#### Provides a range of statistical and visualization tools
+#### Lightweight Python library for tracking cryptocurrency markets
 
 The cryptocurrency market is a dynamic ecosystem. In times of increased market volatility, altcoins may be moving along with Bitcoin, or they may suddenly boom. For example, computing platforms such as ETH and EOS are more likely to behave similarly. Correlations just appear and disappear with time, but do it slowly.
 
