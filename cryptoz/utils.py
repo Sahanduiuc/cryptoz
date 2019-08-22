@@ -89,30 +89,42 @@ def pairwise_apply(df, combi_func, apply_func):
 
 def _normalize(a, method):
     """Feature scaling"""
+
     if method == 'max':
+        # Rescaling
         return a / np.nanmax(a)
     if method == 'minmax':
+        # Rescaling (min-max normalization)
         return (a - np.nanmin(a)) / (np.nanmax(a) - np.nanmin(a))
     if method == 'mean':
+        # Mean normalization
         return (a - np.nanmean(a)) / (np.nanmax(a) - np.nanmin(a))
     if method == 'std':
+        # Standardization (Z-score Normalization)
         return (a - np.nanmean(a)) / np.nanstd(a)
 
 
 def normalize(df, method, axis=0):
-    """Takes into account past and future. df is normalized on columns, rows or both."""
+    """
+    Applies a normalization method on the dataframe.
+    The dataframe can be normalized on columns, rows or both.
+    Takes into account past AND future.
+    """
+
     f = lambda a: _normalize(a, method)
     return apply(df, f, axis=axis)
 
 
 def rolling_normalize(df, method, *args, **kwargs):
-    """Normalization isolated to fixed rolling window"""
+    """Applies normalization isolated to a fixed rolling window in the past"""
+
     f = lambda a: _normalize(a, method)[-1]
     return rolling_apply(df, f, *args, **kwargs)
 
 
 def expanding_normalize(df, method, *args, **kwargs):
-    """Normalization isolated to past only"""
+    """Applies normalization isolated to the entire past"""
+
     f = lambda a: _normalize(a, method)[-1]
     return expanding_apply(df, f, *args, **kwargs)
 
