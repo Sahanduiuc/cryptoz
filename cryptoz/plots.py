@@ -32,7 +32,7 @@ def midpoint_norm(midpoint):
 
 
 class MidpointNormalize(mcolors.Normalize):
-    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+    def __init__(self, midpoint=None, vmin=None, vmax=None, clip=False):
         self.midpoint = midpoint
         mcolors.Normalize.__init__(self, vmin, vmax, clip)
 
@@ -140,8 +140,20 @@ def heatmap(df, cmap, norm=None, col_ranker=None, idx_ranker=None, figsize=None)
     plt.show()
 
 
-def evolution(df, cmap=plt.cm.Spectral, norm=midpoint_norm(0), rank=None, sentiment=lambda sr: sr.mean(), 
-              show_markers=None, describe=False, figsize=None):
+def get_vmin_vmax(df, symmetric=False):
+    vmax = df.max().max()
+    if symmetric:
+        if vmax > 0:
+            vmin = -vmax
+        else:
+            vmin = df.min().min()
+    else:
+        vmin = df.min().min()
+    return vmin, vmax
+
+
+def evolution(df, cmap=plt.cm.Spectral, norm=None, vmin=None, vmax=None, rank=None, 
+                sentiment=lambda sr: sr.mean(), show_markers=None, describe=False, figsize=None):
     """Combine multiple time series into a heatmap and plot"""
     if describe:
         print(utils.describe_df(df, flatten=False))
@@ -164,8 +176,8 @@ def evolution(df, cmap=plt.cm.Spectral, norm=midpoint_norm(0), rank=None, sentim
     if figsize is None:
         figsize = (14, len(columns) * 0.45)
     fig, ax = plt.subplots(figsize=figsize)
-
-    im = ax.pcolor(df.transpose(), cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
+    
+    im = ax.pcolor(df.transpose(), cmap=cmap, norm=norm, vmin=vmin, vmax=vmax)
 
     x = np.arange(len(index)) + 0.5
     y = np.arange(len(columns)) + 0.5
@@ -202,7 +214,7 @@ def evolution(df, cmap=plt.cm.Spectral, norm=midpoint_norm(0), rank=None, sentim
 
     cax_top = divider.append_axes("top", size=0.35, pad=0.15)
     sentiment_sr = df.apply(sentiment, axis=1)
-    cax_top.pcolor([sentiment_sr], cmap=cmap, norm=norm, vmin=df.min().min(), vmax=df.max().max())
+    cax_top.pcolor([sentiment_sr], cmap=cmap, norm=norm, vmin=vmin, vmax=vmax)
     cax_top.set_yticks([0.5], minor=False)
     cax_top.set_yticklabels(["sentiment"], minor=False)
     plt.setp(cax_top.get_xticklabels(), visible=False)
