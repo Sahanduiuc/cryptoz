@@ -140,9 +140,11 @@ def heatmap(df, cmap, norm=None, col_ranker=None, idx_ranker=None, figsize=None)
     plt.show()
 
 
-def evolution(df, cmap, norm=None, rank=None, sentiment=lambda sr: sr.mean(), figsize=None):
+def evolution(df, cmap=plt.cm.Spectral, norm=midpoint_norm(0), rank=None, sentiment=lambda sr: sr.mean(), 
+              show_markers=None, describe=False, figsize=None):
     """Combine multiple time series into a heatmap and plot"""
-    print(utils.describe_df(df, flatten=True))
+    if describe:
+        print(utils.describe_df(df, flatten=False))
 
     if rank is not None:
         if isinstance(rank, str):
@@ -168,10 +170,20 @@ def evolution(df, cmap, norm=None, rank=None, sentiment=lambda sr: sr.mean(), fi
     x = np.arange(len(index)) + 0.5
     y = np.arange(len(columns)) + 0.5
 
-    min_x, min_y, max_x, max_y = unravel_index(df)
-    min_x, min_y, max_x, max_y = x[min_x], y[min_y], x[max_x], y[max_y]
-    ax.plot(min_x, min_y, marker='x', markersize=10, color='black')
-    ax.plot(max_x, max_y, marker='x', markersize=10, color='black')
+    if show_markers == 'global':
+        min_x, min_y, max_x, max_y = unravel_index(df)
+        min_x, min_y, max_x, max_y = x[min_x], y[min_y], x[max_x], y[max_y]
+        ax.plot(min_x, min_y, marker='v', markersize=10, markerfacecolor='white', 
+            markeredgewidth=1, markeredgecolor='black')
+        ax.plot(max_x, max_y, marker='^', markersize=10, markerfacecolor='white', 
+            markeredgewidth=1, markeredgecolor='black')
+    elif show_markers == 'local':
+        for i, j in list(zip(np.nanargmin(df.values, axis=0), range(len(df.columns)))):
+            ax.plot(x[i], y[j], marker='v', markersize=10, markerfacecolor='white', 
+                markeredgewidth=1, markeredgecolor='black')
+        for i, j in list(zip(np.nanargmax(df.values, axis=0), range(len(df.columns)))):
+            ax.plot(x[i], y[j], marker='^', markersize=10, markerfacecolor='white', 
+                markeredgewidth=1, markeredgecolor='black')
 
     # xticks
     nticks = 6
@@ -199,12 +211,5 @@ def evolution(df, cmap, norm=None, rank=None, sentiment=lambda sr: sr.mean(), fi
 
     # Turn off all the ticks
     ax = plt.gca()
-
-    for t in ax.xaxis.get_major_ticks():
-        t.tick1On = False
-        t.tick2On = False
-    for t in ax.yaxis.get_major_ticks():
-        t.tick1On = False
-        t.tick2On = False
 
     plt.show()

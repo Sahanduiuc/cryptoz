@@ -10,22 +10,22 @@ from tqdm.autonotebook import tqdm
 
 
 class BinanceHelper():
+    """Wrapper around python-binance client to preprocess data in a right way."""
+
     def __init__(self, client):
         self.client = client
 
     @staticmethod
     def ts_to_dt(ts):
-        """Unix timestamp to datetime object"""
-
+        """Convert Unix timestamp to datetime object."""
         return datetime.utcfromtimestamp(ts / 1000)
 
     @staticmethod
     def symbol_into_pair(symbol):
-        """
-        Parse Binance symbol to pair
+        """Parse Binance symbol to pair.
+
         For example, BTCUSDT -> (BTC, USDT)
         """
-
         if isinstance(symbol, tuple):
             return symbol
         supported_quotes = ['USDT', 'BTC', 'ETH', 'BNB']
@@ -36,25 +36,22 @@ class BinanceHelper():
 
     @staticmethod
     def pair_into_symbol(pair):
-        """
-        Convert pair to Binance symbol
+        """Convert pair to Binance symbol.
+        
         For example, (BTC, USDT) -> BTCUSDT
         """
-
         if not isinstance(pair, tuple):
             return pair
         return ''.join(pair)
 
     def get_pairs(self):
-        """Get the list of all pairs from Binance"""
-        
+        """Get the list of all pairs from Binance."""
         # Market Data Endpoints: https://python-binance.readthedocs.io/en/latest/market_data.html
         pairs = set(map(lambda d: self.symbol_into_pair(d['symbol']), self.client.get_all_tickers()))
         return list(filter(lambda s: s is not None, pairs))
 
     def get_ticker(self):
-        """Get the latest price for all markets"""
-
+        """Get the latest price for all markets."""
         ticker = {}
         for d in self.client.get_all_tickers():
             pair = self.symbol_into_pair(d['symbol'])
@@ -63,8 +60,7 @@ class BinanceHelper():
         return ticker
 
     def get_active_balances(self, enrich=False):
-        """Get the active, non-zero balances from the account information"""
-
+        """Get the active, non-zero balances from the account information."""
         # Account Endpoints: https://python-binance.readthedocs.io/en/latest/account.html
         balances = self.client.get_account()['balances']
         df = pd.DataFrame(balances)
@@ -76,11 +72,10 @@ class BinanceHelper():
 
     @staticmethod
     def get_conversion_operation(pair, ticker):
-        """
-        Searches for pairs in the ticker required to build the requested pair.
+        """Search for pairs in the ticker required to build the requested pair.
+
         This way, for example, you can get the price of almost any possible trading pair.
         """
-
         base, quote = pair
         if base == quote:
             # BTC/BTC = 1.0
@@ -104,8 +99,7 @@ class BinanceHelper():
 
     @staticmethod
     def calculate_pair_price(pair, ticker):
-        """Calculate the price of the pair"""
-
+        """Calculate the price of the pair."""
         pair1, pair2, divide = BinanceHelper.get_conversion_operation(pair, ticker)
         if divide:
             operation = lambda x, y: x / y
@@ -122,14 +116,12 @@ class BinanceHelper():
         return operation(factor1, factor2)
 
     def get_current_price(self, pair):
-        """Get the current price of the pair"""
-
+        """Get the current price of the pair."""
         ticker = self.get_ticker()
         return self.calculate_pair_price(pair, ticker)
 
     def get_active_balances_in(self, symbol):
-        """Get the active balances in the currency specified (e.g. USDT)"""
-
+        """Get the active balances in the currency specified (e.g. USDT)."""
         active_balances = self.get_active_balances()
         ticker = self.get_ticker()
         return {
@@ -138,11 +130,10 @@ class BinanceHelper():
         }
 
     def _get_pair_ohlcv(self, pair, interval, **kwargs):
-        """
-        Get OHLCV data for one pair.
+        """Get OHLCV data for one pair.
+
         Pair must be supported by Binance.
         """
-
         symbol = self.pair_into_symbol(pair)
         candles = self.client.get_klines(symbol=symbol, interval=interval, **kwargs)
         columns = ['date', 'O', 'H', 'L', 'C', '_', '_', 'V', '_', '_', '_', '_']
@@ -160,12 +151,11 @@ class BinanceHelper():
         return df
 
     def get_pair_ohlcv(self, pair, *args, **kwargs):
-        """
-        Wrapper around _get_pair_ohlcv with conversion logic (similar to price conversion)
+        """Wrapper around _get_pair_ohlcv with conversion logic (similar to price conversion).
+
         Can accept almost any pair of symbols as long as can be converted to BTC.
         For example, it can return OHLCV data for GAS in LSK units.
         """
-
         # Is the pair supported by Binance?
         ticker = self.get_ticker()
         if pair in ticker:
@@ -212,7 +202,6 @@ class BinanceHelper():
 
     def get_multiple_pair_ohlcv(self, pairs, *args, **kwargs):
         """Fetch OHLCV data for multiple pairs"""
-
         ohlcvs = {}
         pbar = tqdm(pairs)
         for pair in pbar:
@@ -221,14 +210,13 @@ class BinanceHelper():
         return ohlcvs
 
     def _get_pair_depth(self, pair, **kwargs):
-        """
-        Get order book and construct cumulative depth (as can be seen in Binance under the Depth tab)
+        """Get order book and construct cumulative depth (as can be seen in Binance under the Depth tab).
+
         Returns a series of cumulative bids and asks (negative sign) indexed by the rate.
         Both amounts and rates are in quote currency, for multiple pairs to be comparable.
         Meant to visualize supply and demand at different prices.
         Pair must be supported by Binance.
         """
-
         # Get order book
         symbol = self.pair_into_symbol(pair)
         order_book = self.client.get_order_book(symbol=symbol, **kwargs)
@@ -251,12 +239,11 @@ class BinanceHelper():
         return cum_bids.append(cum_asks).sort_index()
 
     def get_pair_depth(self, pair, **kwargs):
-        """
-        Wrapper around _get_pair_depth with conversion logic (similar to price conversion)
+        """Wrapper around _get_pair_depth with conversion logic (similar to price conversion).
+
         Can accept almost any pair of symbols as long as can be converted to BTC.
         For example, it can return depth for GAS in LSK units.
         """
-
         # Is the pair supported by Binance?
         ticker = self.get_ticker()
         if pair in ticker:
