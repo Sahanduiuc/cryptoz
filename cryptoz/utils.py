@@ -26,7 +26,7 @@ def build_from_dict(df_dict, column, window=None):
 
 
 def describe(df, flatten=False):
-    """Return generate descriptive statistics of *df* as a new dataframe."""
+    """Return generate descriptive statistics as a new dataframe."""
     if flatten:
         df = pd.DataFrame(df.values.flatten())
     return df.describe().transpose()
@@ -50,18 +50,6 @@ def apply(df, func, axis=0):
         return df.apply(lambda sr: func(sr.values), axis=axis, raw=False)
 
 
-def resampling_apply(df, func, *args, **kwargs):
-    """Resample the time series and apply a function on each sample. PAST AND FUTURE.
-    
-    For example, downsample `df` into 1h bins and apply `func` on each bin.
-    """
-    period_index = pd.Series(df.index, index=df.index).resampling(*args, **kwargs).first()
-    grouper = pd.Series(1, index=period_index.values).reindex(df.index).fillna(0).cumsum()
-    res_sr = df.groupby(grouper).apply(func, raw=False)
-    res_sr.index = period_index.index
-    return res_sr
-
-
 def rolling_apply(df, func, *args, **kwargs):
     """Apply a function on a rolling window. PAST ONLY."""
     return df.rolling(*args, **kwargs).apply(func, raw=False)
@@ -75,6 +63,16 @@ def expanding_apply(df, func, backwards=False, **kwargs):
     else:
         # Everything after this point of time
         return df.expanding(**kwargs).apply(func, raw=False)
+
+
+def resampling_apply(df, func, *args, **kwargs):
+    """Resample the time series and apply a function on each sample. PAST AND FUTURE.
+    
+    For example, downsample `df` into 1h bins and apply `func` on each bin.
+    """
+    period_index = pd.Series(df.index, index=df.index).resample(*args, **kwargs).first().dropna()
+    grouper = pd.Series(1, index=period_index.values).reindex(df.index).fillna(0).cumsum()
+    return df.groupby(grouper).apply(func)
 
 
 ##########################################
@@ -91,7 +89,7 @@ def product(cols):
 def combine(cols):
     """2-length tuples, in sorted order, no repeated elements.
     
-    ABC -> AB AC AD BC BD CD
+    ABC -> AB AC BC
     """
     return list(itertools.combinations(cols, 2))
 
@@ -202,63 +200,4 @@ def reverse_scale(df, **kwargs):
     [1, 2, 3, 4, 7] -> [7, 6, 5, 4, 1]
     """
     f = lambda a: np.nanmin(a) + np.nanmax(a) - a
-    return apply(df, f, **kwargs)
-
-
-def trunk(df, limits):
-    """Trunk every element in the dataframe that exceeds some limits"""
-    df = df.copy()
-    _min, _max = limits
-    df[df < _min] = _min
-    df[df > _max] = _max
-    return df
-
-
-##########################################
-# Classification
-
-def apply_thresholds_arr(a, levels=None, increment=False):
-    """For each number in the array, assign it the nearest level such that abs(number) >= abs(level).
-
-    Without levels, it just rounds each number.
-    original:                  [-6.5, -5, -2, -0.1, 7, 8, 0, 1.1, 1.0, 4, 5, 222]
-    sorted:                    [-6.5, -5, -2, -0.1, 0, 1.0, 1.1, 4, 5, 7, 8, 222]
-    levels (-2, 1, 5):                     |            |           |
-    sorted output:             [  -2, -2, -2,    0, 0,  1,    1, 1, 5, 5, 5,   5]
-    incremented sorted output: [   0,  0,  0,    1, 1,  2,    2, 2, 3, 3, 3,   3]
-    """
-
-    if levels is None:
-        return list(map(lambda x: round(x), a))
-    else:
-        # Reverse positive numbers since we want to check bigger numbers first
-        levels = list(set(levels + [0]))
-        levels = list(sorted(filter(lambda x: x <= 0, levels))) + \
-            list(sorted(filter(lambda x: x > 0, levels), reverse=True))
-        b = []
-        for x in a:
-            if np.isnan(x):
-                b.append(x)
-                continue
-            found = False
-            for l in levels:
-                if (x < 0 and l < 0 and x <= l) or (x > 0 and l > 0 and x >= l):
-                    if increment:
-                        b.append(sorted(levels).index(l))
-                    else:
-                        b.append(l)
-                    found = True
-                    break
-            if not found:
-                if increment:
-                    b.append(sorted(levels).index(0))
-                else:
-                    b.append(0)
-        return b
-
-
-def apply_thresholds(df, levels=None, increment=False, **kwargs):
-    """Apply thresholds to the whole dataframe."""
-    f = lambda a: apply_thresholds_arr(a, levels=levels, increment=increment)
-    # No need for rolling or expanding windows
     return apply(df, f, **kwargs)
