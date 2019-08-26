@@ -35,34 +35,19 @@ def describe(df, flatten=False):
 ##########################################
 # Windows
 
-def apply(df, func, axis=0):
-    """Apply a function either on columns, rows or both. PAST AND FUTURE.
-    
-    Each function must operate on an NumPy array, not pd.Series.
-    """
-    if axis is None:
-        # Apply on both axes
-        flatten = df.values.flatten()
-        reshaped = func(flatten).reshape(df.values.shape)
-        return pd.DataFrame(reshaped, columns=df.columns, index=df.index)
-    else:
-        # Apply on either horizontal or vertical axis
-        return df.apply(lambda sr: func(sr.values), axis=axis, raw=False)
 
-
-def rolling_apply(df, func, *args, **kwargs):
+def rolling_apply(df, func, backwards=False, *args, **kwargs):
     """Apply a function on a rolling window. PAST ONLY."""
-    return df.rolling(*args, **kwargs).apply(func, raw=False)
+    # Everything after this point of time
+    if backwards: return df.iloc[::-1].rolling(*args, **kwargs).apply(func, raw=False).iloc[::-1]
+    # Everything before this point of time
+    else: return df.rolling(*args, **kwargs).apply(func, raw=False)
 
 
-def expanding_apply(df, func, backwards=False, **kwargs):
+def expanding_apply(df, func, backwards=False, *args, **kwargs):
     """Apply a function on the expanding window. EITHER PAST OR FUTURE ONLY."""
-    if backwards:
-        # Everything before this point of time
-        return df.iloc[::-1].expanding(**kwargs).apply(func, raw=False).iloc[::-1]
-    else:
-        # Everything after this point of time
-        return df.expanding(**kwargs).apply(func, raw=False)
+    if backwards: return df.iloc[::-1].expanding(*args, **kwargs).apply(func, raw=False).iloc[::-1]
+    else: return df.expanding(*args, **kwargs).apply(func, raw=False)
 
 
 def resampling_apply(df, func, *args, **kwargs):
@@ -72,33 +57,24 @@ def resampling_apply(df, func, *args, **kwargs):
     """
     period_index = pd.Series(df.index, index=df.index).resample(*args, **kwargs).first().dropna()
     grouper = pd.Series(1, index=period_index.values).reindex(df.index).fillna(0).cumsum()
-    return df.groupby(grouper).apply(func)
+    return df.groupby(grouper).apply(lambda df: df.apply(func, raw=False))
 
 
 ##########################################
 # Combinations
 
 def product(cols):
-    """Cartesian product.
-    
-    ABC -> AA AB AC BA BB BC CA CB CC
-    """
+    """Cartesian product."""
     return list(itertools.product(cols, repeat=2))
 
 
 def combine(cols):
-    """2-length tuples, in sorted order, no repeated elements.
-    
-    ABC -> AB AC BC
-    """
+    """2-length tuples, in sorted order, no repeated elements."""
     return list(itertools.combinations(cols, 2))
 
 
 def combine_rep(cols):
-    """2-length tuples, in sorted order, with repeated elements.
-    
-    ABC -> AA AB AC BB BC CC
-    """
+    """2-length tuples, in sorted order, with repeated elements."""
     return list(itertools.combinations_with_replacement(cols, 2))
 
 
@@ -111,77 +87,79 @@ def pairwise_apply(df, combi_func, apply_func):
 ##########################################
 # Normalization
 
-def normalize_arr(a, method):
-    """Normalize the array.
-    
-    max:    [1, 2, 3, 4, 5] -> [0.2, 0.4, 0.6, 0.8, 1]
-    minmax: [1, 2, 3, 4, 5] -> [0, 0.25, 0.5, 0.75, 1]
-    mean:   [1, 2, 3, 4, 5] -> [-0.5, -0.25, 0, 0.25, 0.5]
-    std:    [1, 2, 3, 4, 5] -> [-1.41421356, -0.70710678, 0, 0.70710678, 1.41421356]
-    """
+def normalize_sr(sr, method):
+    """Normalize the array."""
     if method == 'max':
-        return a / np.nanmax(a)
+        return sr / sr.max()
     if method == 'minmax':
-        return (a - np.nanmin(a)) / (np.nanmax(a) - np.nanmin(a))
+        return (sr - sr.min()) / (sr.max() - sr.min())
     if method == 'mean':
-        return (a - np.nanmean(a)) / (np.nanmax(a) - np.nanmin(a))
+        return (sr - sr.mean()) / (sr.max() - sr.min())
     if method == 'std':
-        return (a - np.nanmean(a)) / np.nanstd(a)
+        return (sr - sr.mean()) / sr.std()
 
 
 def normalize(df, method, **kwargs):
     """Normalize the dataframe with respect to all elements."""
-    f = lambda a: normalize_arr(a, method)
+    f = lambda sr: normalize_sr(sr, method)
     return apply(df, f, **kwargs)
 
 
-def rolling_normalize(df, method, *args, **kwargs):
+def rolling_normalize(df, method, backwards=False, *args, **kwargs):
     """Normalize the dataframe with respect to a rolling window."""
-    f = lambda a: normalize_arr(a, method)[-1]
-    return rolling_apply(df, f, *args, **kwargs)
+    f = lambda sr: normalize_sr(sr, method)[-1]
+    return rolling_apply(df, f, backwards=backwards, *args, **kwargs)
 
 
-def expanding_normalize(df, method, *args, **kwargs):
+def expanding_normalize(df, method, backwards=False, *args, **kwargs):
     """Normalize the dataframe with respect to the expanding window."""
-    f = lambda a: normalize_arr(a, method)[-1]
-    return expanding_apply(df, f, *args, **kwargs)
+    f = lambda sr: normalize_sr(sr, method)[-1]
+    return expanding_apply(df, f, backwards=backwards, *args, **kwargs)
+
+
+def resampling_normalize(df, method, *args, **kwargs):
+    """Normalize the dataframe with respect to the sample window."""
+    f = lambda sr: normalize_sr(sr, method)
+    return resampling_apply(df, f, *args, **kwargs)
 
 
 ##########################################
 # Rescaling
 
-def rescale_arr(a, to_range, from_range=None):
-    """Rescale the array.
-    
-    [1, 2, 3, 4, 5], [0, 1]          -> [0, 0.25, 0.5, 0.75, 1]
-    [1, 2, 3, 4, 5], [0, 1], [0, 10] -> [0.1, 0.2, 0.3, 0.4, 0.5]
-    """
+def rescale_sr(sr, to_range, from_range=None):
+    """Rescale the array."""
     if from_range is None:
-        min1, max1 = np.nanmin(a), np.nanmax(a)
+        min1, max1 = sr.min(), sr.max()
     else:
         min1, max1 = from_range
     min2, max2 = to_range
     range1 = max1 - min1
     range2 = max2 - min2
-    return (a - min1) * range2 / range1 + min2
+    return (sr - min1) * range2 / range1 + min2
 
 
 def rescale(df, to_range, from_range=None, **kwargs):
     """Rescale the dataframe with respect to all elements."""
-    f = lambda a: rescale_arr(a, to_range, from_range=from_range)
+    f = lambda sr: rescale_sr(sr, to_range, from_range=from_range)
     return apply(df, f, **kwargs)
 
 
-def rolling_rescale(df, to_range, from_range=None, **kwargs):
+def rolling_rescale(df, to_range, from_range=None, backwards=False, *args, **kwargs):
     """Rescale the dataframe with respect to a rolling window."""
-    f = lambda a: rescale_arr(a, to_range, from_range=from_range)[-1]
-    return rolling_apply(df, f, **kwargs)
+    f = lambda sr: rescale_sr(sr, to_range, from_range=from_range)[-1]
+    return rolling_apply(df, f, backwards=backwards, *args, **kwargs)
 
 
-def expanding_rescale(df, to_range, from_range=None, **kwargs):
+def expanding_rescale(df, to_range, from_range=None, backwards=False, *args, **kwargs):
     """Rescale the dataframe with respect to the expanding window."""
-    f = lambda a: rescale_arr(a, to_range, from_range=from_range)[-1]
-    return expanding_apply(df, f, **kwargs)
+    f = lambda sr: rescale_sr(sr, to_range, from_range=from_range)[-1]
+    return expanding_apply(df, f, backwards=backwards, *args, **kwargs)
+
+
+def resampling_rescale(df, method, *args, **kwargs):
+    """Rescale the dataframe with respect to the sample window."""
+    f = lambda sr: rescale_sr(sr, method)
+    return resampling_apply(df, f, *args, **kwargs)
 
 
 def rescale_dynamic_range(df, from_range, to_range):
@@ -195,9 +173,6 @@ def rescale_dynamic_range(df, from_range, to_range):
 
 
 def reverse_scale(df, **kwargs):
-    """Reverse the scale of the dataframe.
-    
-    [1, 2, 3, 4, 7] -> [7, 6, 5, 4, 1]
-    """
+    """Reverse the scale of the dataframe."""
     f = lambda a: np.nanmin(a) + np.nanmax(a) - a
     return apply(df, f, **kwargs)

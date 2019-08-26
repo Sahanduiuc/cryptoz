@@ -1,8 +1,4 @@
 import numpy as np
-
-from cryptoz import utils
-
-import numpy as np
 import pandas as pd
 
 from cryptoz import utils
@@ -11,17 +7,8 @@ from cryptoz import utils
 ##########################################
 # Correlation
 
-
-def rolling_corr_sr(sr1, sr2, *args, **kwargs):
-    return sr1.rolling(*args, **kwargs).corr(other=sr2)
-
-
-def resampling_corr_sr(sr1, sr2, *args, **kwargs):
-    apply_func = lambda sr1, sr2: sr1.corr(other=sr2) if len(sr1.index) > 1 else np.nan
-    return utils.resampling_apply(sr1, lambda sr: apply_func(sr, sr2), *args, **kwargs)
-
-
 def pairwise_apply_corr(df, against_col, apply_func):
+    """Calculate pairwise correlation of each column and the passed column."""
     combi_func = lambda cols: [(col, against_col) for col in cols if col != against_col]
     new_df = utils.pairwise_apply(df, combi_func, apply_func)
     # Shorten column names, omit against_col in each column
@@ -29,60 +16,67 @@ def pairwise_apply_corr(df, against_col, apply_func):
     return new_df
 
 
-def rolling_corr(df, against_col, *args, **kwargs):
-    apply_func = lambda sr1, sr2: rolling_corr_sr(sr1, sr2, *args, **kwargs)
-    return pairwise_apply_corr(df, against_col, apply_func)
+def rolling_corr(df, against_col, backwards=False, *args, **kwargs):
+    """Calculate correlation with respect to a column and rolling window."""
+    sr2 = df[against_col]
+    if backwards:
+        apply_func = lambda sr: sr.iloc[::-1].rolling(*args, **kwargs).corr(other=sr2.iloc[::-1]).iloc[::-1]
+    else:
+        apply_func = lambda sr: sr.rolling(*args, **kwargs).corr(other=sr2)
+    return utils.apply(df, apply_func)
+
+
+def expanding_corr(df, against_col, backwards=False, *args, **kwargs):
+    """Calculate correlation with respect to a column and the expanding window."""
+    sr2 = df[against_col]
+    if backwards:
+        apply_func = lambda sr: sr.iloc[::-1].expanding(*args, **kwargs).corr(other=sr2.iloc[::-1]).iloc[::-1]
+    else:
+        apply_func = lambda sr: sr.expanding(*args, **kwargs).corr(other=sr2)
+    return utils.apply(df, apply_func)
 
 
 def resampling_corr(df, against_col, *args, **kwargs):
-    apply_func = lambda sr1, sr2: resampling_corr_sr(sr1, sr2, *args, *kwargs)
-    return pairwise_apply_corr(df, against_col, apply_func)
+    """Calculate correlation with respect to a column and the sample window."""
+    apply_func = lambda sr: sr.corr(other=df[against_col]) if len(sr.index) > 1 else np.nan
+    return utils.resampling_apply(df, apply_func, *args, **kwargs)
 
 
-def expanding_corr(df, against_col, *args, **kwargs):
-    apply_func = lambda sr1, sr2: resampling_corr_sr(sr1, sr2, *args, *kwargs)
-    return pairwise_apply_corr(df, against_col, apply_func)
+##########################################
+# Drawdown
+
+def expanding_max(ohlc_df):
+    return ohlc_df['H'].expanding().max()
 
 
-######
+def drawdown(df_dict):
+    f = lambda ohlc_df: 1 - ohlc_df['L'] / expanding_max(ohlc_df)
+    return pd.DataFrame({pair: f(ohlc_df) for pair, ohlc_df in df_dict.items()})
 
 
-
-_rolling_max = lambda ohlc_df: ohlc_df['H'].rolling(window=len(ohlc_df.index), min_periods=1).max()
-_dd = lambda ohlc_df: 1 - ohlc_df['L'] / _rolling_max(ohlc_df)
-
-
-def from_ohlc(ohlc):
-    return pd.DataFrame({pair: _dd(ohlc_df) for pair, ohlc_df in ohlc.items()})
+def drawdown_now(df_dict):
+    # How far are we now from the last max?
+    f = lambda ohlc_df: 1 - ohlc_df['C'].iloc[-1] / expanding_max(ohlc_df).iloc[-1]
+    return pd.Series({pair: f(ohlc_df) for pair, ohlc_df in df_dict.items()})
 
 
-# How far are we now from the last max?
-_dd_now = lambda ohlc_df: 1 - ohlc_df['C'].iloc[-1] / _rolling_max(ohlc_df).iloc[-1]
+def rolling_drawdown(df_dict, reducer, *args, **kwargs):
+    dd_df = drawdown(df_dict)
+    return utils.rolling_apply(dd_df, reducer, *args, **kwargs)
 
 
-def now(ohlc, delta=None):
-    return pd.Series({pair: _dd_now(ohlc_df) for pair, ohlc_df in ohlc.items()}).sort_values()
+def resampling_drawdown(df_dict, reducer, *args, **kwargs):
+    dd_df = drawdown(df_dict)
+    return utils.resampling_apply(dd_df, reducer, *args, **kwargs)
 
 
-def rolling(ohlc, reducer, *args, **kwargs):
-    _dd = from_ohlc(ohlc)
-    return utils.rolling_apply(_dd, reducer, *args, **kwargs)
+def max_drawdown_duration(df_dict):
+    dd_df = drawdown(df_dict)
+    f = lambda ohlc_df, dd_sr: dd_sr.argmin() - ohlc_df.loc[:dd_sr.argmin(), 'H'].argmax()
+    return pd.Series({pair: f(df_dict[pair], dd_df[pair]) for pair in df_dict.keys()}).sort_values()
 
 
-def resampling(ohlc, reducer, *args, **kwargs):
-    _dd = from_ohlc(ohlc)
-    return utils.resampling_apply(_dd, reducer, *args, **kwargs)
-
-
-_maxdd_duration = lambda ohlc_df, dd_sr: dd_sr.argmin() - ohlc_df.loc[:dd_sr.argmin(), 'H'].argmax()
-
-
-def max_duration(ohlc):
-    _dd = from_ohlc(ohlc)
-    return pd.Series({pair: _maxdd_duration(ohlc[pair], _dd[pair]) for pair in ohlc.keys()}).sort_values()
-
-
-def _period_details(ohlc_df, group_df):
+def drawdown_period_details(ohlc_df, group_df):
     """Details of a DD and recovery"""
     if len(group_df.index) > 1:
         window_df = group_df.iloc[1:]  # drawdown starts at first fall
@@ -111,17 +105,17 @@ def _period_details(ohlc_df, group_df):
     return np.nan
 
 
-def _details(ohlc_df):
-    details_func = lambda group_df: _period_details(ohlc_df, group_df)
+def drawdown_details_one(ohlc_df):
+    details_func = lambda group_df: drawdown_period_details(ohlc_df, group_df)
     # Everything below last max forms a group
-    group_sr = (~((ohlc_df['H'] - _rolling_max(ohlc_df)) < 0)).astype(int).cumsum()
+    group_sr = (~((ohlc_df['H'] - expanding_max(ohlc_df)) < 0)).astype(int).cumsum()
     details = ohlc_df.groupby(group_sr).apply(details_func).dropna().values.tolist()
     columns = ['start', 'valley', 'end', 'dd_len', 'recovery_len', 'recovery_rate', 'dd', 'recovery']
     return pd.DataFrame(details, columns=columns)
 
 
-def details(ohlc):
-    return {pair: _details(ohlc_df) for pair, ohlc_df in ohlc.items()}
+def drawdown_details(df_dict):
+    return {pair: drawdown_details_one(df_dict) for pair, ohlc_df in df_dict.items()}
 
 #######
 
