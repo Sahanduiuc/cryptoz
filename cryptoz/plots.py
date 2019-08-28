@@ -27,10 +27,6 @@ def discrete_norm(cmap, bounds):
     return mcolors.BoundaryNorm(bounds, cmap.N)
 
 
-def midpoint_norm(midpoint):
-    return MidpointNormalize(midpoint=midpoint)
-
-
 class MidpointNormalize(mcolors.Normalize):
     def __init__(self, midpoint=None, vmin=None, vmax=None, clip=False):
         self.midpoint = midpoint
@@ -39,6 +35,10 @@ class MidpointNormalize(mcolors.Normalize):
     def __call__(self, value, clip=None):
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
         return np.ma.masked_array(np.interp(value, x, y))
+
+
+def midpoint_norm(midpoint):
+    return MidpointNormalize(midpoint=midpoint)
 
 
 def combine_cmaps(cm1, cm2, scale1, scale2):
@@ -127,16 +127,6 @@ def heatmap(df, cmap, norm=None, col_ranker=None, idx_ranker=None, figsize=None)
 
     plt.colorbar(im, cax=cax)
 
-    # Turn off all the ticks
-    ax = plt.gca()
-
-    for t in ax.xaxis.get_major_ticks():
-        t.tick1On = False
-        t.tick2On = False
-    for t in ax.yaxis.get_major_ticks():
-        t.tick1On = False
-        t.tick2On = False
-
     plt.show()
 
 
@@ -220,8 +210,5 @@ def evolution(df, cmap=plt.cm.Spectral, norm=None, vmin=None, vmax=None, rank=No
     plt.setp(cax_top.get_xticklabels(), visible=False)
 
     plt.grid(False)
-
-    # Turn off all the ticks
-    ax = plt.gca()
 
     plt.show()

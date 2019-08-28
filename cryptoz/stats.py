@@ -42,8 +42,20 @@ def resampling_corr(df, against_col, *args, **kwargs):
     return utils.resampling_apply(df, apply_func, *args, **kwargs)
 
 
-##########################################
-# Drawdown
+#########################################
+# Percentiles
+
+def percentiles_sr(sr, min, max, step):
+    index = range(min, max + 1, step)
+    return pd.Series({x: np.nanpercentile(sr, x) for x in index})
+
+
+def percentiles(df, *args):
+    return df.apply(lambda sr: percentiles_sr(sr, *args))
+
+
+#########################################
+# Drawdowns and Recovery
 
 def mdd_sr(sr):
     """Calculate max drawdown (MDD) of the time series."""
@@ -67,26 +79,12 @@ def resampling_mdd(df, *args, **kwargs):
     return utils.resampling_apply(df, mdd_sr, *args, **kwargs)
 
 
-def single_dd_info_sr(sr, begin_idx, end_idx):
-    """Return the drawdown and recovery information on a time series range.
+def dd_mapreduce_sr(sr, map_func, reduce_func):
+    """Split the time series into drawdown ranges and apply mapper and reducer on them.
     
-    A drawdown is a peak-to-trough decline during a specific time period.
-    A recovery is an increase from trough to peak equal or higher than the previous peak.
+    Mapper should accept `sr` (whole pd.Series), `begin_idx`, `end_idx` parameters.
+    Reducer should accept a list of mapper outputs.
     """
-    focus_sr = sr[begin_idx:end_idx]
-    valley_idx = focus_sr.idxmin()
-    return {
-        'start': begin_idx,
-        'valley': valley_idx,
-        'end': end_idx,
-        'dd_duration': valley_idx - begin_idx,
-        'rec_duration': end_idx - valley_idx if end_idx is not None else pd.Timedelta(0),
-        'dd_rate (%)': (1 - focus_sr.min() / focus_sr.iloc[0]) * 100,
-        'rec_rate (%)': (focus_sr.iloc[-1] / focus_sr.min() - 1) * 100 if end_idx is not None else None
-    }
-
-def dd_info_sr(sr):
-    """Split the time series into drawdown ranges and extract information from them."""
     _mdd_sr = mdd_sr(sr)
     diff_sr = (_mdd_sr > 0).astype(int).diff()
     # Indices where drawdown begins
@@ -99,98 +97,36 @@ def dd_info_sr(sr):
         if len(begin_idxs) > len(end_idxs):
             # If the last drawdown still lasts, add the recovery date as None
             end_idxs.append(None)
-        return pd.DataFrame([single_dd_info_sr(sr, idx1, idx2) for idx1, idx2 in zip(begin_idxs, end_idxs)])
+        mapped_lst = [map_func(sr, idx1, idx2) for idx1, idx2 in zip(begin_idxs, end_idxs)]
+        return reduce_func(mapped_lst)
     else:
+        # The rate continuously increases
         return None
+
+
+def dd_stats(df, map_func, reduce_func):
+    """Split each time series into drawdown ranges and aggregate their statistics."""
+    return pd.Series([dd_mapreduce_sr(df[c], map_func, reduce_func) for c in df.columns], index=df.columns)
+
+
+def dd_map_info_sr(sr, begin_idx, end_idx):
+    """Return the drawdown and recovery information on a time series range.
+    
+    A drawdown is a peak-to-trough decline during a specific time period.
+    A recovery is an increase from trough to peak equal or higher than the previous peak.
+    """
+    focus_sr = sr.loc[begin_idx:end_idx]
+    valley_idx = focus_sr.idxmin()
+    return {
+        'start': begin_idx,
+        'valley': valley_idx,
+        'end': end_idx,
+        'dd_duration': valley_idx - begin_idx,
+        'rec_duration': end_idx - valley_idx if end_idx is not None else pd.Timedelta(0),
+        'dd_rate (%)': (1 - focus_sr.min() / focus_sr.iloc[0]) * 100,
+        'rec_rate (%)': (focus_sr.iloc[-1] / focus_sr.min() - 1) * 100 if end_idx is not None else None
+    }
     
 def dd_info(df, *args, **kwargs):
     """Give the information on drawdowns and recovery for each column."""
-    return {c: dd_info_sr(df[c]) for c in df.columns}
-
-#######
-
-
-
-def _percentiles(sr, min, max, step):
-    index = range(min, max + 1, step)
-    return pd.Series({x: np.nanpercentile(sr, x) for x in index})
-
-
-def percentiles(df, *args):
-    return df.apply(lambda sr: _percentiles(sr, *args))
-
-
-
-#######
-
-
-import numpy as np
-import pandas as pd
-
-
-def safe_divide(a, b):
-    if b == 0:
-        return np.nan
-    return a / b
-
-
-# Returns to equity
-_e = lambda r: (r.replace(to_replace=np.nan, value=0) + 1).cumprod()
-
-# Total earned/lost
-_total = lambda e: e.iloc[-1] / e.iloc[0] - 1
-
-trades = lambda r: (r != 0).sum().item()  # np.int64 to int
-profits = lambda r: (r > 0).sum()
-losses = lambda r: (r < 0).sum()
-winrate = lambda r: safe_divide(profits(r), trades(r))
-lossrate = lambda r: safe_divide(losses(r), trades(r))
-
-profit = lambda r: _total(_e(r))
-avggain = lambda r: r[r > 0].mean()
-avgloss = lambda r: -r[r < 0].mean()
-expectancy = lambda r: safe_divide(profit(r), trades(r))
-maxdd = lambda r: 1 - (_e(r) / _e(r).expanding(min_periods=1).max()).min()
-
-
-def sharpe(r, nperiods=None):
-    res = safe_divide(r.mean(), r.std())
-    if nperiods is not None:
-        res *= (nperiods ** 0.5)
-    return res
-
-
-def sortino(r, nperiods=None):
-    res = safe_divide(r.mean(), r[r < 0].std())
-    if nperiods is not None:
-        res *= (nperiods ** 0.5)
-    return res
-
-
-def _summary(r):
-    summary_sr = r.describe()
-    summary_sr.index = pd.MultiIndex.from_tuples([('distribution', i) for i in summary_sr.index])
-
-    summary_sr.loc[('performance', 'profit')] = profit(r)
-    summary_sr.loc[('performance', 'avggain')] = avggain(r)
-    summary_sr.loc[('performance', 'avgloss')] = avgloss(r)
-    summary_sr.loc[('performance', 'winrate')] = winrate(r)
-    summary_sr.loc[('performance', 'expectancy')] = expectancy(r)
-    summary_sr.loc[('performance', 'maxdd')] = maxdd(r)
-
-    summary_sr.loc[('risk/return profile', 'sharpe')] = sharpe(r)
-    summary_sr.loc[('risk/return profile', 'sortino')] = sortino(r)
-
-    return summary_sr
-
-
-def summary(ohlc):
-    return pd.DataFrame({pair: _summary(ohlc_df['C'].pct_change().fillna(0)) for pair, ohlc_df in ohlc.items()})
-
-
-def score_matrix(ohlc):
-    from cryptoz import score
-
-    summary_df = summary(ohlc)
-    summary_df.index = summary_df.index.droplevel()
-    return score.apply(summary_df, axis=1) # index-local score
+    return {c: dd_mapreduce_sr(df[c], dd_map_info_sr, lambda x: pd.DataFrame(x)) for c in df.columns}
