@@ -45,77 +45,67 @@ def resampling_corr(df, against_col, *args, **kwargs):
 ##########################################
 # Drawdown
 
-def expanding_max(ohlc_df):
-    return ohlc_df['H'].expanding().max()
+def mdd_sr(sr):
+    """Calculate max drawdown (MDD) of the time series."""
+    # Already expanding, no need for expanding_mdd
+    return 1 - sr / sr.expanding().max()
 
 
-def drawdown(df_dict):
-    f = lambda ohlc_df: 1 - ohlc_df['L'] / expanding_max(ohlc_df)
-    return pd.DataFrame({pair: f(ohlc_df) for pair, ohlc_df in df_dict.items()})
+def mdd(df, *args, **kwargs):
+    """Max drawdown with respect to all elements."""
+    return utils.apply(df, mdd_sr, *args, **kwargs)
 
 
-def drawdown_now(df_dict):
-    # How far are we now from the last max?
-    f = lambda ohlc_df: 1 - ohlc_df['C'].iloc[-1] / expanding_max(ohlc_df).iloc[-1]
-    return pd.Series({pair: f(ohlc_df) for pair, ohlc_df in df_dict.items()})
+def rolling_mdd(df, *args, **kwargs):
+    """Max drawdown with respect to a rolling window."""
+    f = lambda sr: mdd_sr(sr)[-1]
+    return utils.rolling_apply(df, f, *args, **kwargs)
 
 
-def rolling_drawdown(df_dict, reducer, *args, **kwargs):
-    dd_df = drawdown(df_dict)
-    return utils.rolling_apply(dd_df, reducer, *args, **kwargs)
+def resampling_mdd(df, *args, **kwargs):
+    """Max drawdown with respect to the sample window."""
+    return utils.resampling_apply(df, mdd_sr, *args, **kwargs)
 
 
-def resampling_drawdown(df_dict, reducer, *args, **kwargs):
-    dd_df = drawdown(df_dict)
-    return utils.resampling_apply(dd_df, reducer, *args, **kwargs)
+def single_dd_info_sr(sr, begin_idx, end_idx):
+    """Return the drawdown and recovery information on a time series range.
+    
+    A drawdown is a peak-to-trough decline during a specific time period.
+    A recovery is an increase from trough to peak equal or higher than the previous peak.
+    """
+    focus_sr = sr[begin_idx:end_idx]
+    valley_idx = focus_sr.idxmin()
+    return {
+        'start': begin_idx,
+        'valley': valley_idx,
+        'end': end_idx,
+        'dd_duration': valley_idx - begin_idx,
+        'rec_duration': end_idx - valley_idx if end_idx is not None else pd.Timedelta(0),
+        'dd_rate (%)': (1 - focus_sr.min() / focus_sr.iloc[0]) * 100,
+        'rec_rate (%)': (focus_sr.iloc[-1] / focus_sr.min() - 1) * 100 if end_idx is not None else None
+    }
 
-
-def max_drawdown_duration(df_dict):
-    dd_df = drawdown(df_dict)
-    f = lambda ohlc_df, dd_sr: dd_sr.argmin() - ohlc_df.loc[:dd_sr.argmin(), 'H'].argmax()
-    return pd.Series({pair: f(df_dict[pair], dd_df[pair]) for pair in df_dict.keys()}).sort_values()
-
-
-def drawdown_period_details(ohlc_df, group_df):
-    """Details of a DD and recovery"""
-    if len(group_df.index) > 1:
-        window_df = group_df.iloc[1:]  # drawdown starts at first fall
-        max = group_df['H'].iloc[0]
-        min = window_df['L'].min()
-        # DD
-        start = window_df.index[0]
-        valley = window_df['L'].argmin()
-        dd_len = len(window_df.loc[start:valley].index)
-        dd = 1 - min / max
-        # Recovery
-        if len(ohlc_df.loc[group_df.index[-1]:].index) > 1:
-            # Recovery finished
-            end = window_df.index[-1]
-            recovery_len = len(window_df.loc[valley:end].index)
-            recovery_rate = dd_len / recovery_len
-            recovery = max / min - 1
-        else:
-            # Not recovered yet
-            end = np.nan
-            recovery_len = np.nan
-            recovery_rate = np.nan
-            recovery = np.nan
-
-        return start, valley, end, dd_len, recovery_len, recovery_rate, dd, recovery
-    return np.nan
-
-
-def drawdown_details_one(ohlc_df):
-    details_func = lambda group_df: drawdown_period_details(ohlc_df, group_df)
-    # Everything below last max forms a group
-    group_sr = (~((ohlc_df['H'] - expanding_max(ohlc_df)) < 0)).astype(int).cumsum()
-    details = ohlc_df.groupby(group_sr).apply(details_func).dropna().values.tolist()
-    columns = ['start', 'valley', 'end', 'dd_len', 'recovery_len', 'recovery_rate', 'dd', 'recovery']
-    return pd.DataFrame(details, columns=columns)
-
-
-def drawdown_details(df_dict):
-    return {pair: drawdown_details_one(df_dict) for pair, ohlc_df in df_dict.items()}
+def dd_info_sr(sr):
+    """Split the time series into drawdown ranges and extract information from them."""
+    _mdd_sr = mdd_sr(sr)
+    diff_sr = (_mdd_sr > 0).astype(int).diff()
+    # Indices where drawdown begins
+    begin_idxs = diff_sr[diff_sr == 1].index.tolist()
+    # Include one more index to the left
+    begin_idxs = [diff_sr.index[diff_sr.index.get_loc(idx)-1] for idx in begin_idxs]
+    # Indices where recovery ends
+    end_idxs = diff_sr[diff_sr == -1].index.tolist()
+    if len(begin_idxs) > 0 and len(end_idxs) > 0:
+        if len(begin_idxs) > len(end_idxs):
+            # If the last drawdown still lasts, add the recovery date as None
+            end_idxs.append(None)
+        return pd.DataFrame([single_dd_info_sr(sr, idx1, idx2) for idx1, idx2 in zip(begin_idxs, end_idxs)])
+    else:
+        return None
+    
+def dd_info(df, *args, **kwargs):
+    """Give the information on drawdowns and recovery for each column."""
+    return {c: dd_info_sr(df[c]) for c in df.columns}
 
 #######
 

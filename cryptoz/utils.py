@@ -35,6 +35,20 @@ def describe(df, flatten=False):
 ##########################################
 # Windows
 
+def apply(df, func, axis=0):
+    """Apply a function either on columns, rows or both. PAST AND FUTURE.
+    
+    Each function must operate on an NumPy array, not pd.Series.
+    """
+    if axis is None:
+        # Apply on both axes
+        flatten = df.values.flatten()
+        reshaped = func(flatten).reshape(df.values.shape)
+        return pd.DataFrame(reshaped, columns=df.columns, index=df.index)
+    else:
+        # Apply on either horizontal or vertical axis
+        return df.apply(func, axis=axis, raw=False)
+
 
 def rolling_apply(df, func, backwards=False, *args, **kwargs):
     """Apply a function on a rolling window. PAST ONLY."""
