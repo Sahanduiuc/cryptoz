@@ -130,3 +130,4 @@ def dd_map_info_sr(sr, begin_idx, end_idx):
 def dd_info(df, *args, **kwargs):
     """Give the information on drawdowns and recovery for each column."""
     return {c: dd_mapreduce_sr(df[c], dd_map_info_sr, lambda x: pd.DataFrame(x)) for c in df.columns}
+    

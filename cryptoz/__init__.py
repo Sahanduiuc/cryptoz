@@ -1,1 +1,1 @@
-from cryptoz import binance, utils, plots, stats
+from cryptoz import binance, utils, plot, stats

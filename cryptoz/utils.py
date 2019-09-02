@@ -14,7 +14,7 @@ def select_window(df, window):
     return df[df.index > df.index.max() - window].copy()
 
 
-def build_from_dict(df_dict, column, window=None):
+def select_from_dict(df_dict, column, window=None):
     """Build a dataframe from the dictionary of dataframes.
     
     Selects a column (and optionally a window) from each one and then stacks them.
@@ -38,7 +38,7 @@ def describe(df, flatten=False):
 def apply(df, func, axis=0):
     """Apply a function either on columns, rows or both. PAST AND FUTURE.
     
-    Each function must operate on an NumPy array, not pd.Series.
+    Each function must operate on an NumPy series, not pd.Series.
     """
     if axis is None:
         # Apply on both axes
@@ -102,7 +102,7 @@ def pairwise_apply(df, combi_func, apply_func):
 # Normalization
 
 def normalize_sr(sr, method):
-    """Normalize the array."""
+    """Normalize the series."""
     if method == 'max':
         return sr / sr.max()
     if method == 'minmax':
@@ -140,16 +140,22 @@ def resampling_normalize(df, method, *args, **kwargs):
 ##########################################
 # Rescaling
 
+def rescale_single(x, from_range, to_range):
+    """Rescale a single element."""
+    if from_range == to_range:
+        return x
+    min1, max1 = from_range
+    min2, max2 = to_range
+    diff1 = max1 - min1
+    diff2 = max2 - min2
+    return (x - min1) * diff2 / diff1 + min2
+
+
 def rescale_sr(sr, to_range, from_range=None):
-    """Rescale the array."""
+    """Rescale a series."""
     if from_range is None:
         min1, max1 = sr.min(), sr.max()
-    else:
-        min1, max1 = from_range
-    min2, max2 = to_range
-    range1 = max1 - min1
-    range2 = max2 - min2
-    return (sr - min1) * range2 / range1 + min2
+    return sr.apply(lambda x: rescale_single(x, from_range, to_range))
 
 
 def rescale(df, to_range, from_range=None, **kwargs):
@@ -176,7 +182,7 @@ def resampling_rescale(df, method, *args, **kwargs):
     return resampling_apply(df, f, *args, **kwargs)
 
 
-def rescale_dynamic_range(df, from_range, to_range):
+def dynamic_rescale(df, from_range, to_range):
     """Rescale the dataframe dynamically.
     
     A similar idea as for `rescale` but from_range can take a tuple of dataframes.
