@@ -108,7 +108,7 @@ def cmap_to_colorscale(cmap, vmin, vmax, norm=None, cmap_discrete=False, cmap_ra
 # Heatmaps
 
 def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=False, 
-    cmap_range=None, rank_func=None, sentiment_func=lambda sr: sr.mean(), zsmooth=None, 
+    cmap_range=None, rank_func=None, sentiment_func=lambda sr: sr.mean(), zsmooth='fast', 
     describe=False, static=False, column_height=20):
     """Plot a heatmap with time on x-axis and columns on y-axis."""
     
@@ -158,12 +158,6 @@ def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=F
     else:
         # other 
         colorscale = cmap
-    if zsmooth is None:
-        # Smooth the sentiment heatmap only if the colormap is continuous
-        if cmap_discrete is False:
-            zsmooth = 'fast'
-        else:
-            zsmooth = False
             
 
     ########################

@@ -15,4 +15,4 @@ Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/
 pip install git+https://github.com/polakowo/cryptoz.git
 ```
 
-![corr-matrix](corr-matrix.png)
+![Anomaly detection](anomaly-detection.png)
