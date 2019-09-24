@@ -15,5 +15,5 @@ Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/
 pip install git+https://github.com/polakowo/cryptoz.git
 ```
 
-<img width=900 src="anomaly-detection.png">
-Example: Anomaly detection over rolling windows.
+<img width=900 src="example-chart.png">
+Example: Width of Bollinger Bands.
