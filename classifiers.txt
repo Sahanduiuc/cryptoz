@@ -1,0 +1,18 @@
+Intended Audience :: Developers
+Intended Audience :: Education
+Intended Audience :: End Users/Desktop
+Intended Audience :: Financial and Insurance Industry
+Intended Audience :: Other Audience
+Intended Audience :: Science/Research
+License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Operating System :: OS Independent
+Programming Language :: Python
+Programming Language :: Python :: 3 :: Only
+Topic :: Office/Business
+Topic :: Office/Business :: Financial
+Topic :: Scientific/Engineering
+Topic :: Scientific/Engineering :: Visualization
+Topic :: Scientific/Engineering :: Mathematics
+Topic :: Scientific/Engineering :: Information Analysis
+Topic :: Software Development :: Libraries :: Python Modules
+Topic :: Utilities
