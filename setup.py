@@ -32,5 +32,5 @@ setup(name='cryptoz',
       packages=find_packages(exclude=("tests",)),
       install_requires=INSTALL_REGS,
       keywords='binance cryptocurrency statistics visualization bitcoin ethereum btc eth altcoins analysis trading',
-      python_requires='>=3.*',
+      python_requires='>=3.6',
       classifiers=CLASSIFIERS)
