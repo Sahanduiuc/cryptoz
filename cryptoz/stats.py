@@ -93,10 +93,10 @@ def dd_mapreduce_sr(sr, map_func, reduce_func):
     begin_idxs = [diff_sr.index[diff_sr.index.get_loc(idx)-1] for idx in begin_idxs]
     # Indices where recovery ends
     end_idxs = diff_sr[diff_sr == -1].index.tolist()
+    if len(begin_idxs) > len(end_idxs):
+        # If the last drawdown still lasts, add the recovery date as None
+        end_idxs.append(None)
     if len(begin_idxs) > 0 and len(end_idxs) > 0:
-        if len(begin_idxs) > len(end_idxs):
-            # If the last drawdown still lasts, add the recovery date as None
-            end_idxs.append(None)
         mapped_lst = [map_func(sr, idx1, idx2) for idx1, idx2 in zip(begin_idxs, end_idxs)]
         return reduce_func(mapped_lst)
     else:
@@ -122,7 +122,7 @@ def dd_map_info_sr(sr, begin_idx, end_idx):
         'valley': valley_idx,
         'end': end_idx,
         'dd_duration': valley_idx - begin_idx,
-        'rec_duration': end_idx - valley_idx if end_idx is not None else pd.Timedelta(0),
+        'rec_duration': end_idx - valley_idx if end_idx is not None else None,
         'dd_rate (%)': (1 - focus_sr.min() / focus_sr.iloc[0]) * 100,
         'rec_rate (%)': (focus_sr.iloc[-1] / focus_sr.min() - 1) * 100 if end_idx is not None else None
     }

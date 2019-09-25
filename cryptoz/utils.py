@@ -154,7 +154,7 @@ def rescale_single(x, from_range, to_range):
 def rescale_sr(sr, to_range, from_range=None):
     """Rescale a series."""
     if from_range is None:
-        min1, max1 = sr.min(), sr.max()
+        from_range = sr.min(), sr.max()
     return sr.apply(lambda x: rescale_single(x, from_range, to_range))
 
 

@@ -100,6 +100,8 @@ class BinanceHelper():
     @staticmethod
     def calculate_pair_price(pair, ticker):
         """Calculate the price of the pair."""
+        if ticker is None:
+            ticker = self.get_ticker()
         pair1, pair2, divide = BinanceHelper.get_conversion_operation(pair, ticker)
         if divide:
             operation = lambda x, y: x / y
