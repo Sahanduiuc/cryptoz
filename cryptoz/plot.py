@@ -109,7 +109,7 @@ def cmap_to_colorscale(cmap, vmin, vmax, norm=None, cmap_discrete=False, cmap_ra
 
 def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=False, 
     cmap_range=None, rank_func=None, sentiment_func=lambda sr: sr.mean(), zsmooth='fast', 
-    describe=False, static=False, column_height=20):
+    describe=False, static=True, column_height=20):
     """Plot a heatmap with time on x-axis and columns on y-axis."""
     
     #########################
@@ -141,15 +141,18 @@ def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=F
         if vmin < 0 and vmax > 0:
             # Bipolar range
             norm = MidpointNormalize(midpoint=0, vmin=vmin, vmax=vmax)
-        elif vmin <= 0 and vmax <= 0:
-            # Negative range only
-            cmap_range = [0, 0.5]
-        elif vmin >= 0 and vmax >= 0:
-            # Positive range only
-            cmap_range = [0.5, 1]
+        if cmap_range is None:
+            if vmin <= 0 and vmax <= 0:
+                # Negative range only
+                cmap_range = [0, 0.5]
+            elif vmin >= 0 and vmax >= 0:
+                # Positive range only
+                cmap_range = [0.5, 1]
+    if isinstance(norm, (int, float, complex)) and not isinstance(norm, bool):
+        # If norm is a number, make it a midpoint
+        norm = MidpointNormalize(midpoint=norm, vmin=vmin, vmax=vmax)
     if cmap is None:
         cmap = 'Spectral'
-
     if isinstance(cmap, (str, mcolors.ListedColormap, mcolors.LinearSegmentedColormap)):
         # If cmap is a matplotlib colormap, transform into plotly's colorscale
         # Note: norm is only valid with matplotlib's colormap
