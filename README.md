@@ -1,4 +1,5 @@
 ![](https://img.shields.io/github/license/polakowo/cryptoz)
+[![PyPI version](https://badge.fury.io/py/cryptoz.svg)](https://badge.fury.io/py/cryptoz)
 
 # cryptoz
 
