@@ -1,3 +1,5 @@
+![](https://img.shields.io/github/license/polakowo/cryptoz)
+
 # cryptoz
 
 #### Tracking the cryptocurrency market as a whole
@@ -10,5 +12,5 @@ Binance is supported as a data source.
 
 Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/github/polakowo/cryptoz/blob/master/Workbook.ipynb)
 
-<img width=900 src="example-chart.png">
+<img width=900 src="https://github.com/polakowo/cryptoz/blob/master/example-chart.png?raw=true">
 Example: Width of Bollinger Bands.
