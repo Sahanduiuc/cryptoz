@@ -10,10 +10,5 @@ Binance is supported as a data source.
 
 Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/github/polakowo/cryptoz/blob/master/Workbook.ipynb)
 
-#### Installation
-```
-pip install git+https://github.com/polakowo/cryptoz.git
-```
-
 <img width=900 src="example-chart.png">
 Example: Width of Bollinger Bands.
