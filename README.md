@@ -18,7 +18,7 @@ Binance is supported as a data source.
 #### Installation
 
 ```
-pip install cryptoz
+pip install git+https://github.com/polakowo/cryptoz.git
 ```
 
 #### Usage
