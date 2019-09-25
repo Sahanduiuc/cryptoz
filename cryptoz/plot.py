@@ -108,9 +108,55 @@ def cmap_to_colorscale(cmap, vmin, vmax, norm=None, cmap_discrete=False, cmap_ra
 # Heatmaps
 
 def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=False, 
-    cmap_range=None, rank_func=None, sentiment_func=lambda sr: sr.mean(), zsmooth='fast', 
-    describe=False, static=True, column_height=20):
-    """Plot a heatmap with time on x-axis and columns on y-axis."""
+    cmap_range=None, rank_func=None, sentiment_func=lambda sr: sr.mean(), sentiment_smooth='fast', 
+    describe=False, static=True):
+    """Plot a heatmap with time on x-axis and columns on y-axis.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame indexed by datetime
+    cmap : str, Matplotlib colormap, Plotly colorscale
+        Colormap or colorscale. If colormap, then either a string or colormap object that will be
+        automatically converted into a colorscale with cmap_to_colorscale. For details, see 
+        https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html. If colorscale, then a 
+        collection of predefined sequential colorscales. For details, see 
+        https://plot.ly/python/colorscales/
+    norm : Matplotlib normalizer, function, number
+        Color normalization function. If Matplotlib normalizer, then see
+        https://matplotlib.org/3.1.1/tutorials/colors/colormapnorms.html. If function, then an 
+        arbitrary mapper function. For example, `lambda x: (x - vmin) / (vmax - vmin)` maps 
+        [vmin, vmax] to [0, 1]. If number, then midpoint normalization around this number.
+    vmin : number
+        Left boundary for cmap. In color normalization, the value is mapped to 0. Then in Plotly, 
+        the value is mapped to the left bound of the colorscale (zmin)
+    vmax : number
+        Right boundary for cmap. In color normalization, the value is mapped to 1. Then in Plotly, 
+        the value is mapped to the right bound of the colorscale (zmax)
+    cmap_discrete : boolean
+        Whether to make the colormap discrete, that is, make clear boundaries between each two 
+        colors in the colorscale. If False, interpolates colors between those.
+    cmap_range : tuple of two numbers
+        Range that is selected from the cmap. For example, [0, 0.5] selects the first half,
+        while [0.5, 1] selects the second half of the colorscale. Reverse the order of the numbers 
+        in the range to reverse the colorscale. For example, [1, 0] reverses the whole colorscale.
+    rank_func : function
+        Ranker function for columns in the dataframe. Takes each column as a pd.Series object and 
+        produces a number that is then used to re-order the columns. Useful for clustering columns
+        visually.
+    sentiment_func : function
+        Reducer function for rows in the dataframe. Takes each row and produces a number that is 
+        then used as an aggregate metric of all columns at that point in time. Useful for
+        visualizing the development of the whole market.
+    sentiment_smooth : str
+        Interpolation method for Plotly (zsmooth) used for smoothing the sentiment.
+    describe : boolean
+        Whether to print the description of the dataframe before plotting.
+    static : boolean
+        Whether to produce a static PNG image. If False, produce an interactive Plotly chart.
+        Interactive plotting may consume lots of resources, hence the default is True.
+
+    """
     
     #########################
     # Configure the dataframe
@@ -187,7 +233,7 @@ def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=F
         colorscale=colorscale, 
         zmin=vmin,
         zmax=vmax,
-        zsmooth=zsmooth,
+        zsmooth=sentiment_smooth,
         showscale=False,
         hoverinfo='x+z',
         hovertemplate="index: %{x}<br>value: %{z}",
@@ -204,6 +250,8 @@ def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=F
     
     ######################
     # Configure the layout
+    # The height of the row in the heatmap
+    row_height = 20
     
     # Margins and paddings
     ml = 30
@@ -217,10 +265,10 @@ def time_heatmap(df, cmap=None, norm=None, vmin=None, vmax=None, cmap_discrete=F
     fixed_height = labels_height + mt + mb
     # Size of the figure
     width = 900
-    height = len(df.columns) * column_height + 2 * column_height + fixed_height
+    height = len(df.columns) * row_height + 2 * row_height + fixed_height
     # Range of each subplot (vertically)
-    y_domain = [0, 1 - (2 * column_height) / (height - fixed_height)]
-    y2_domain = [1 - (column_height) / (height - fixed_height), 1]
+    y_domain = [0, 1 - (2 * row_height) / (height - fixed_height)]
+    y2_domain = [1 - (row_height) / (height - fixed_height), 1]
         
     # Configure layout
     layout = go.Layout(
