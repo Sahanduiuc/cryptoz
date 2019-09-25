@@ -14,5 +14,5 @@ Binance is supported as a data source.
 
 Workbook can be accessed through [Jupyter nbviewer](http://nbviewer.jupyter.org/github/polakowo/cryptoz/blob/master/Workbook.ipynb)
 
-<img width=900 src="https://github.com/polakowo/cryptoz/blob/master/example-chart.png?raw=true"/>
+![example-chart.png](https://github.com/polakowo/cryptoz/blob/master/example-chart.png?raw=true)
 Example: Events where the price exceeds Bollinger Bands.
