@@ -3,7 +3,7 @@
 
 # cryptoz
 
-#### Tracking the cryptocurrency market as a whole
+#### Tracking cryptocurrency markets
 
 The cryptocurrency market is a dynamic ecosystem. In times of an increased market volatility, altcoins may be moving in sync with Bitcoin, or they may suddenly boom. For example, computing platforms such as ETH and EOS are more likely to behave similarly. Correlations just appear and disappear with time, but do it slowly.
 
